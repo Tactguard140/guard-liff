@@ -383,7 +383,7 @@ function loadSiteEmployees(siteId) {
     })
     .liffGetEmployeesBySite(siteId);
 }
-
+  
 function toggleSiteEmpList() {
   const container = document.getElementById('site-emp-list-container');
   const arrow = document.getElementById('site-emp-arrow');
@@ -399,7 +399,7 @@ function toggleSiteEmpList() {
     arrow.className = 'fas fa-chevron-down ms-auto';
   }
 }
-
+  
 function quickAddEmp(id, name) {
   // 1. เช็คว่ามีคนนี้อยู่ในช่องเบิกแล้วหรือยัง (กันกดเบิ้ล)
   const existingInputs = document.querySelectorAll('.emp-id');
