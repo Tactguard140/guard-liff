@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>ส่งยอดเบิก รปภ.</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    :root{--green:#06C755;--navy:#101B4D}
+    body{background:#f0f2f5;font-family:'Sarabun',sans-serif;padding-bottom:80px}
+    #liff-loading{position:fixed;inset:0;background:rgba(255,255,255,.97);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+    .spinner{width:48px;height:48px;border:5px solid #e5e7eb;border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    #error-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+    .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;font-size:.82rem;color:#991b1b;max-width:400px;word-break:break-all;margin-top:12px;text-align:left}
+    #blocked-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
+    .liff-header{background:linear-gradient(135deg,var(--navy),#1e3a8a);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+    .user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:.82rem;margin-top:5px}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+    .tab-bar{background:#fff;border-bottom:2px solid #e5e7eb;display:flex}
+    .tab-btn{flex:1;border:none;background:transparent;padding:11px 8px;font-size:.88rem;color:#6b7280;font-weight:600;border-bottom:3px solid transparent;cursor:pointer}
+    .tab-btn.active{color:var(--navy);border-bottom-color:var(--navy)}
+    .tab-pane{display:none}
+    .tab-pane.active{display:block}
+    .section-card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:10px;overflow:hidden}
+    .card-head{background:#f8f9fa;padding:9px 14px;font-weight:700;font-size:.88rem;color:var(--navy);border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:8px}
+    .form-wrap{padding:12px}
+    .form-label{font-size:.83rem;font-weight:600;color:#374151;margin-bottom:3px}
+    .form-control,.form-select{border-radius:8px;font-size:.88rem;border:1.5px solid #d1d5db}
+    .form-control[readonly]{background:#f3f4f6;color:#6b7280}
+    .emp-card{background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;margin:8px 10px;overflow:hidden}
+    .emp-head{background:#f8f9fa;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:.83rem;color:var(--navy)}
+    .emp-body{padding:10px 12px}
+    .btn-remove-emp{border:none;background:transparent;color:#ef4444;font-size:.8rem;cursor:pointer;padding:2px 6px;border-radius:4px}
+    .btn-add-emp{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 10px;padding:9px;border:2px dashed #3b82f6;border-radius:10px;color:#3b82f6;background:transparent;font-weight:600;font-size:.88rem;width:calc(100% - 20px);cursor:pointer}
+    .btn-submit{position:fixed;bottom:0;left:0;right:0;border-radius:0;padding:15px;font-size:.95rem;font-weight:700;background:linear-gradient(135deg,var(--green),#00b900);border:none;color:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.15);z-index:99}
+    .badge-pending{background:#fef3c7;color:#92400e}
+    .badge-transferred{background:#d1fae5;color:#065f46}
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="liff-loading">
+  <div class="spinner"></div>
+  <p id="loading-msg" style="margin-top:14px;color:var(--navy);font-weight:600;font-size:1rem;">กำลังเชื่อมต่อ LINE...</p>
+  <p id="loading-sub" style="margin-top:4px;color:#6b7280;font-size:.8rem;"></p>
+</div>
+
+<!-- ERROR -->
+<div id="error-screen">
+  <div style="font-size:3rem;color:#ef4444;">⚠️</div>
+  <h5 style="color:#1f2937;margin-top:10px;">เกิดข้อผิดพลาด</h5>
+  <div class="err-box" id="error-detail"></div>
+  <button class="btn btn-sm btn-outline-secondary mt-3" onclick="location.reload()">
+    <i class="fas fa-rotate me-1"></i> ลองใหม่
+  </button>
+</div>
+
+<!-- BLOCKED -->
+<div id="blocked-screen">
+  <div style="font-size:3.5rem;margin-bottom:14px;">🚫</div>
+  <h5 style="color:#1f2937;">ไม่มีสิทธิ์เข้าใช้งาน</h5>
+  <p style="color:#6b7280;font-size:.9rem;">LINE บัญชีนี้ยังไม่ได้ลงทะเบียนในระบบ</p>
+  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#78350f;margin-top:10px;max-width:380px;">
+    กรุณาแจ้ง LineUserID นี้ให้ Admin เพิ่มใน Users Sheet คอลัมน์ F
+  </div>
+  <div id="blocked-uid" style="margin-top:10px;font-size:.75rem;color:#374151;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:8px 12px;width:90%;max-width:380px;"></div>
+  <button class="btn btn-outline-secondary btn-sm mt-3" onclick="copyUid()">
+    <i class="fas fa-copy me-1"></i> คัดลอก LineUserID
+  </button>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none;">
+  <div class="liff-header">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <div style="font-size:.95rem;font-weight:700;"><i class="fas fa-shield-alt me-2"></i>ระบบเบิกเงิน รปภ.</div>
+        <div class="user-badge"><span class="dot"></span><span id="user-name-display">...</span></div>
+      </div>
+      <div style="font-size:1.5rem;opacity:.5;"><i class="fab fa-line"></i></div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')">
+      <i class="fas fa-paper-plane me-1"></i> ส่งรายการ
+    </button>
+    <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();">
+      <i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว
+    </button>
+  </div>
+
+  <!-- TAB: ส่งรายการ -->
+  <div id="tab-send" class="tab-pane active">
+    <div class="section-card">
+      <div class="card-head"><i class="fas fa-user-circle" style="color:var(--green)"></i> ข้อมูลผู้ส่ง</div>
+      <div class="form-wrap">
+        <div class="mb-3">
+          <label class="form-label">ผู้ส่ง (LINE)</label>
+          <input type="text" id="headName" class="form-control" readonly>
+        </div>
+        <div>
+          <label class="form-label">หน่วยงาน <span class="text-danger">*</span></label>
+          <select class="form-select" id="siteSelect">
+            <option value="">-- เลือกหน่วยงาน --</option>
+          </select>
+          <div id="site-empty-hint" class="text-warning mt-1" style="font-size:.78rem;display:none;">
+            <i class="fas fa-exclamation-triangle me-1"></i>ไม่พบหน่วยงานในความรับผิดชอบ กรุณาติดต่อ Admin
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card" style="padding-bottom:4px;">
+      <div class="card-head"><i class="fas fa-users" style="color:#3b82f6"></i> รายการพนักงาน</div>
+      <div id="empList" class="pt-1"></div>
+      <button class="btn-add-emp" onclick="addEmpRow()"><i class="fas fa-plus-circle"></i> เพิ่มพนักงาน</button>
+    </div>
+
+    <div class="section-card">
+      <div class="form-wrap d-flex justify-content-between">
+        <span style="font-size:.85rem;color:#6b7280;">รายการ: <b id="count-emp">0</b> คน</span>
+        <span style="font-size:.85rem;color:#6b7280;">รวม: <b id="sum-amount" class="text-success">0.00</b> บาท</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ประวัติ -->
+  <div id="tab-history" class="tab-pane">
+    <div style="padding:10px;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <b style="color:var(--navy);">รายการที่ส่งแล้ว</b>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadMyRequests()">
+          <i class="fas fa-rotate me-1"></i> รีเฟรช
+        </button>
+      </div>
+      <div id="history-list">
+        <div class="text-center text-muted py-5">
+          <i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>กด "รีเฟรช" เพื่อโหลด
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button class="btn-submit" id="btn-submit-main" onclick="submitRequests()" style="display:none;">
+  <i class="fas fa-paper-plane me-2"></i> ยืนยันส่งยอดเบิก
+</button>
+
+<script>
+// =====================================================
+// ★★★ แก้ค่าสองบรรทัดนี้เท่านั้น ★★★
+const LIFF_ID    = '2009071711-LrtWbQgz';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3MfOzPz5hkSNLBGdOr_UUr0ZJu3UOuv98_yHu7UVlE7D9V2KvYe9TwgKqHJ9m4NIgw/exec';
+// =====================================================
+
+let currentUser = null;
+let lineUserId  = null;
+let empRowCount = 0;
+
+// ── UI helpers ──
+function setMsg(main, sub) {
+  document.getElementById('loading-msg').textContent = main || '';
+  document.getElementById('loading-sub').textContent = sub  || '';
+}
+function hideLoading(){ document.getElementById('liff-loading').style.display = 'none'; }
+function showError(msg){
+  hideLoading();
+  document.getElementById('error-detail').innerHTML = msg;
+  document.getElementById('error-screen').style.display = 'flex';
+}
+function showBlocked(uid){
+  hideLoading();
+  lineUserId = uid;
+  document.getElementById('blocked-uid').textContent = 'LineUserID: ' + uid;
+  document.getElementById('blocked-screen').style.display = 'flex';
+}
+function showMainApp(data){
+  hideLoading();
+  document.getElementById('main-app').style.display = 'block';
+  document.getElementById('btn-submit-main').style.display = 'block';
+  document.getElementById('user-name-display').textContent = data.name + (data.role ? ' · ' + data.role : '');
+  document.getElementById('headName').value = data.name;
+  populateSites(data.sites || []);
+  addEmpRow();
+}
+function copyUid(){
+  if (!lineUserId) return;
+  navigator.clipboard.writeText(lineUserId)
+    .then(() => alert('คัดลอกแล้ว'))
+    .catch(() => alert('LineUserID: ' + lineUserId));
+}
+
+// ── callBackend ──
+async function callBackend(action, params) {
+  const qs  = new URLSearchParams({ liffApi: '1', action, ...(params || {}) });
+  const res  = await fetch(WEBAPP_URL + '?' + qs.toString(), { redirect: 'follow' });
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch(e) { throw new Error('Server error: ' + text.slice(0, 300)); }
+}
+
+// ── INIT ──
+window.addEventListener('load', async function() {
+  try {
+    setMsg('กำลัง init LIFF...', 'ขั้นตอน 1/2');
+    await liff.init({ liffId: LIFF_ID });
+
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    setMsg('กำลังตรวจสอบสิทธิ์...', 'ขั้นตอน 2/2');
+    const profile = await liff.getProfile();
+    lineUserId = profile.userId;
+
+    const data = await callBackend('checkAndGetSites', { lineUserId });
+
+    if (!data || !data.registered) {
+      showBlocked(lineUserId);
+      return;
+    }
+
+    currentUser = data;
+    showMainApp(data);
+
+  } catch(err) {
+    showError('<b>Error:</b> ' + err.message);
+  }
+});
+
+// ── Sites ──
+function populateSites(sites){
+  const sel = document.getElementById('siteSelect');
+  sel.innerHTML = '<option value="">-- เลือกหน่วยงาน --</option>';
+  if (!sites.length) {
+    document.getElementById('site-empty-hint').style.display = 'block';
+    return;
+  }
+  sites.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id; o.textContent = s.name;
+    sel.appendChild(o);
+  });
+  if (sites.length === 1) sel.value = sites[0].id;
+}
+
+// ── Tab ──
+function switchTab(tab){
+  document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el  => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('btn-tab-' + tab).classList.add('active');
+  document.getElementById('btn-submit-main').style.display = tab === 'send' ? 'block' : 'none';
+}
+
+// ── Emp rows ──
+function addEmpRow(){
+  empRowCount++;
+  const rid = 'emp_' + Date.now();
+  const div = document.createElement('div');
+  div.className = 'emp-card'; div.id = rid;
+  div.innerHTML = `
+    <div class="emp-head">
+      <span><i class="fas fa-user me-1" style="color:#3b82f6"></i> พนักงานคนที่ ${empRowCount}</span>
+      <button class="btn-remove-emp" onclick="document.getElementById('${rid}').remove();updateSummary()">
+        <i class="fas fa-times"></i> ลบ
+      </button>
+    </div>
+    <div class="emp-body"><div class="row g-2">
+      <div class="col-5">
+        <label class="form-label">รหัสพนักงาน</label>
+        <input type="number" class="form-control emp-id" placeholder="เช่น 1001" onchange="findEmpName(this)">
+      </div>
+      <div class="col-7">
+        <label class="form-label">ชื่อ-นามสกุล</label>
+        <input type="text" class="form-control emp-name" readonly placeholder="ค้นหาอัตโนมัติ">
+      </div>
+      <div class="col-6">
+        <label class="form-label">ผลัด</label>
+        <select class="form-select emp-shift">
+          <option value="D">กลางวัน (D)</option>
+          <option value="N">กลางคืน (N)</option>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">จำนวนเงิน</label>
+        <input type="number" class="form-control text-end emp-amount" placeholder="0" oninput="updateSummary()">
+      </div>
+    </div></div>`;
+  document.getElementById('empList').appendChild(div);
+  updateSummary();
+}
+
+async function findEmpName(input){
+  const id = input.value;
+  const nameEl = input.closest('.emp-card').querySelector('.emp-name');
+  if (String(id).length < 3) { nameEl.value = ''; return; }
+  nameEl.value = 'กำลังค้นหา...';
+  try {
+    const r = await callBackend('findEmployee', { empId: id });
+    nameEl.value = r.found ? r.name : '⚠️ ไม่พบรหัสนี้';
+  } catch(e) { nameEl.value = '⚠️ โหลดไม่ได้'; }
+}
+
+function updateSummary(){
+  let sum = 0;
+  document.querySelectorAll('.emp-amount').forEach(el => { sum += parseFloat(el.value) || 0; });
+  document.getElementById('count-emp').textContent = document.querySelectorAll('.emp-card').length;
+  document.getElementById('sum-amount').textContent = sum.toLocaleString('th-TH', { minimumFractionDigits: 2 });
+}
+
+// ── Submit ──
+async function submitRequests(){
+  if (!currentUser || !lineUserId) { alert('กรุณาเปิดแอปใหม่'); return; }
+  const siteEl   = document.getElementById('siteSelect');
+  const siteId   = siteEl.value;
+  const siteName = siteEl.options[siteEl.selectedIndex].text;
+  if (!siteId) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหน่วยงาน', 'warning'); return; }
+
+  let rows = [], hasErr = false;
+  document.querySelectorAll('.emp-card').forEach(card => {
+    const id  = card.querySelector('.emp-id').value;
+    const nm  = card.querySelector('.emp-name').value;
+    const sh  = card.querySelector('.emp-shift').value;
+    const amt = card.querySelector('.emp-amount').value;
+    if (!id && !amt) return;
+    if (!id || !amt || !nm || nm.includes('⚠️') || nm === 'กำลังค้นหา...') {
+      card.style.borderColor = '#ef4444'; hasErr = true; return;
+    }
+    card.style.borderColor = '';
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh });
+  });
+
+  if (hasErr) {
+    Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง', 'error');
+    setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => c.style.borderColor = ''), 3000);
+    return;
+  }
+  if (!rows.length) { Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลพนักงานอย่างน้อย 1 คน', 'warning'); return; }
+
+  const cf = await Swal.fire({
+    title: 'ยืนยันการส่ง?',
+    html: `<b>หน่วยงาน:</b> ${siteName}<br><b>จำนวน:</b> ${rows.length} คน<br><b>รวม:</b> ${rows.reduce((s,r)=>s+r.amount,0).toLocaleString()} บาท`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#06C755'
+  });
+  if (!cf.isConfirmed) return;
+
+  Swal.fire({ title: 'กำลังส่ง...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('saveLineRequests', {
+      headName: currentUser.name,
+      site:     siteId,
+      userId:   lineUserId,
+      rows:     JSON.stringify(rows)
+    });
+    if (r.success) {
+      await Swal.fire({ icon: 'success', title: 'ส่งสำเร็จ!', text: 'Admin จะดำเนินการโอนเงินต่อไป', confirmButtonColor: '#06C755' });
+      document.getElementById('siteSelect').value = '';
+      document.getElementById('empList').innerHTML = '';
+      empRowCount = 0; addEmpRow();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else Swal.fire('ผิดพลาด', r.message || 'ไม่ทราบสาเหตุ', 'error');
+  } catch(e) { Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error'); }
+}
+
+// ── History ──
+async function loadMyRequests(){
+  if (!lineUserId) return;
+  document.getElementById('history-list').innerHTML =
+    '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+  try {
+    const rows = await callBackend('getMyRequests', { lineUserId });
+    if (!rows || !rows.length) {
+      document.getElementById('history-list').innerHTML =
+        '<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายการ</div>';
+      return;
+    }
+    let html = '';
+    rows.forEach(r => {
+      const bc = r.status === 'Transferred' ? 'badge-transferred' : 'badge-pending';
+      const st = r.status === 'Transferred' ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
+      html += `
+        <div class="section-card mb-2">
+          <div class="card-head d-flex justify-content-between">
+            <span style="font-size:.8rem;"><i class="fas fa-clock me-1"></i>${r.timestamp}</span>
+            <span class="badge rounded-pill ${bc}" style="font-size:.75rem;padding:3px 9px;">${st}</span>
+          </div>
+          <div class="form-wrap">
+            <div class="row g-1" style="font-size:.85rem;">
+              <div class="col-6"><span class="text-muted">พนักงาน:</span> <b>${r.empName}</b></div>
+              <div class="col-6"><span class="text-muted">รหัส:</span> ${r.empId}</div>
+              <div class="col-6"><span class="text-muted">หน่วยงาน:</span> ${r.site}</div>
+              <div class="col-3"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
+              <div class="col-3 text-end"><b class="text-success">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+            </div>
+          </div>
+        </div>`;
+    });
+    document.getElementById('history-list').innerHTML = html;
+  } catch(e) {
+    document.getElementById('history-list').innerHTML =
+      '<div class="text-center text-danger p-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+  }
+}
+</script>
+</body>
+</html>
