@@ -273,7 +273,6 @@ function switchTab(tab){
   document.getElementById('btn-tab-' + tab).classList.add('active');
   document.getElementById('btn-submit-main').style.display = tab === 'send' ? 'block' : 'none';
 }
-
 // ── Emp rows ──
 function addEmpRow(){
   empRowCount++;
@@ -307,11 +306,21 @@ function addEmpRow(){
         <label class="form-label">จำนวนเงิน</label>
         <input type="number" class="form-control text-end emp-amount" placeholder="0" oninput="updateSummary()">
       </div>
+      
+      <div class="col-12 mt-1">
+        <label class="form-label">ประเภทการเบิก</label>
+        <select class="form-select emp-type" style="font-size:.85rem;">
+          <option value="เบิกล่วงหน้า" selected>เบิกล่วงหน้า</option>
+          <option value="เบิกรายวันคนใหม่">เบิกรายวันคนใหม่</option>
+          <option value="รับสดควงเวร">รับสดควงเวร</option>
+          <option value="รับสดรายวัน">รับสดรายวัน</option>
+        </select>
+      </div>
+
     </div></div>`;
   document.getElementById('empList').appendChild(div);
   updateSummary();
 }
-
 async function findEmpName(input){
   const id = input.value;
   const nameEl = input.closest('.emp-card').querySelector('.emp-name');
