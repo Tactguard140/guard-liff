@@ -39,6 +39,11 @@
     .btn-submit{position:fixed;bottom:0;left:0;right:0;border-radius:0;padding:15px;font-size:.95rem;font-weight:700;background:linear-gradient(135deg,var(--green),#00b900);border:none;color:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.15);z-index:99}
     .badge-pending{background:#fef3c7;color:#92400e}
     .badge-transferred{background:#d1fae5;color:#065f46}
+    /* สไตล์สำหรับรายชื่อพนักงานในหน่วยงาน */
+    .site-emp-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #f3f4f6; font-size:.88rem; }
+    .site-emp-item:last-child { border-bottom:none; }
+    .btn-quick-add { background:#ebf5ff; color:#3b82f6; border:1px solid #bfdbfe; border-radius:6px; padding:4px 12px; font-size:.78rem; font-weight:600; cursor:pointer; transition:0.2s; }
+    .btn-quick-add:hover { background:#dbeafe; }
   </style>
 </head>
 <body>
@@ -106,7 +111,7 @@
         </div>
         <div>
           <label class="form-label">หน่วยงาน <span class="text-danger">*</span></label>
-          <select class="form-select" id="siteSelect">
+          <select class="form-select" id="siteSelect" onchange="handleSiteChange()">
             <option value="">-- เลือกหน่วยงาน --</option>
           </select>
           <div id="site-empty-hint" class="text-warning mt-1" style="font-size:.78rem;display:none;">
@@ -115,6 +120,18 @@
         </div>
       </div>
     </div>
+
+    <div class="section-card" id="site-emp-card" style="display:none;">
+      <div class="card-head" style="cursor:pointer;" onclick="toggleSiteEmpList()">
+        <span><i class="fas fa-list-ul" style="color:#f59e0b"></i> พนักงานในหน่วยงาน</span>
+        <i class="fas fa-chevron-down ms-auto" id="site-emp-arrow"></i>
+      </div>
+      <div class="form-wrap" id="site-emp-list-container" style="display:none; padding: 0;">
+        <div id="site-emp-list">
+          </div>
+      </div>
+    </div>
+    <div class="section-card" style="padding-bottom:4px;">
 
     <div class="section-card" style="padding-bottom:4px;">
       <div class="card-head"><i class="fas fa-users" style="color:#3b82f6"></i> รายการพนักงาน</div>
@@ -248,7 +265,10 @@ function populateSites(sites){
     o.value = s.id; o.textContent = s.name;
     sel.appendChild(o);
   });
-  if (sites.length === 1) sel.value = sites[0].id;
+  if (sites.length === 1) {
+    sel.value = sites[0].id;
+    handleSiteChange(); // ให้รันการโหลดรายชื่ออัตโนมัติ
+  }
 }
 
 // ── Tab ──
@@ -308,7 +328,123 @@ async function findEmpName(input){
     nameEl.value = r.found ? r.name : '⚠️ ไม่พบรหัสนี้';
   } catch(e) { nameEl.value = '⚠️ โหลดไม่ได้'; }
 }
+// ── Site Employees Functions ──
+function handleSiteChange() {
+  const siteId = document.getElementById('siteSelect').value;
+  const card = document.getElementById('site-emp-card');
+  const listContainer = document.getElementById('site-emp-list-container');
+  const arrow = document.getElementById('site-emp-arrow');
 
+  if (!siteId) {
+    card.style.display = 'none';
+    return;
+  }
+  
+  // โชว์กล่องและโหลดข้อมูล
+  card.style.display = 'block';
+  // บังคับให้พับเก็บไว้เป็นค่าเริ่มต้นเสมอเมื่อเปลี่ยนหน่วยงาน
+  listContainer.style.display = 'none';
+  arrow.classList.remove('fa-chevron-up');
+  arrow.classList.add('fa-chevron-down');
+  
+  loadSiteEmployees(siteId);
+}
+
+async function loadSiteEmployees(siteId) {
+  const listEl = document.getElementById('site-emp-list');
+  listEl.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</div>';
+  
+  try {
+    const emps = await callBackend('getEmployeesBySite', { siteId: siteId });
+    if (!emps || emps.length === 0) {
+      listEl.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.85rem;">ไม่พบรายชื่อพนักงานในหน่วยงานนี้</div>';
+      return;
+    }
+    
+    let html = '';
+    emps.forEach(emp => {
+      html += `
+        <div class="site-emp-item">
+          <div>
+            <div style="font-weight:700; color:var(--navy);">${emp.name}</div>
+            <div style="color:#6b7280; font-size:0.75rem;"><i class="fas fa-id-badge me-1"></i> รหัส: ${emp.id}</div>
+          </div>
+          <button class="btn-quick-add" onclick="quickAddEmp('${emp.id}', '${emp.name}')">
+            <i class="fas fa-plus me-1"></i> เบิก
+          </button>
+        </div>
+      `;
+    });
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = '<div class="text-center py-3 text-danger" style="font-size:0.85rem;">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+  }
+}
+
+function toggleSiteEmpList() {
+  const container = document.getElementById('site-emp-list-container');
+  const arrow = document.getElementById('site-emp-arrow');
+  
+  if (container.style.display === 'none') {
+    $(container).slideDown(200); // ใช้ jQuery ช่วยให้ดูนุ่มนวล
+    arrow.classList.remove('fa-chevron-down');
+    arrow.classList.add('fa-chevron-up');
+  } else {
+    $(container).slideUp(200);
+    arrow.classList.remove('fa-chevron-up');
+    arrow.classList.add('fa-chevron-down');
+  }
+}
+
+function quickAddEmp(id, name) {
+  // 1. เช็คว่ามีคนนี้อยู่ในช่องเบิกแล้วหรือยัง (กันกดเบิ้ล)
+  const existingInputs = document.querySelectorAll('.emp-id');
+  for (let input of existingInputs) {
+    if (input.value === id) {
+      Swal.fire({
+        title: 'มีรายชื่อนี้แล้ว!',
+        text: 'พนักงานคนนี้อยู่ในรายการเบิกด้านล่างแล้วครับ',
+        icon: 'warning',
+        toast: true,
+        position: 'top',
+        showConfirmButton: false,
+        timer: 2000
+      });
+      return;
+    }
+  }
+
+  // 2. หางานที่ยังว่างอยู่ (ยังไม่ได้กรอกรหัส)
+  let emptyRowFound = false;
+  document.querySelectorAll('.emp-card').forEach(card => {
+    const idInput = card.querySelector('.emp-id');
+    const nameInput = card.querySelector('.emp-name');
+    if (!emptyRowFound && !idInput.value && !nameInput.value) {
+      idInput.value = id;
+      nameInput.value = name;
+      emptyRowFound = true;
+    }
+  });
+
+  // 3. ถ้าไม่มีช่องว่างเลย ให้สร้างกล่องพนักงานใหม่เพิ่ม
+  if (!emptyRowFound) {
+    addEmpRow();
+    const cards = document.querySelectorAll('.emp-card');
+    const lastCard = cards[cards.length - 1];
+    lastCard.querySelector('.emp-id').value = id;
+    lastCard.querySelector('.emp-name').value = name;
+  }
+  
+  Swal.fire({
+    title: 'เพิ่มลงรายการเบิกแล้ว',
+    icon: 'success',
+    toast: true,
+    position: 'top',
+    showConfirmButton: false,
+    timer: 1500
+  });
+}
+  
 function updateSummary(){
   let sum = 0;
   document.querySelectorAll('.emp-amount').forEach(el => { sum += parseFloat(el.value) || 0; });
