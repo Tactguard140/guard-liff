@@ -453,7 +453,7 @@ async function submitRequests(){
 // ── History (ประวัติการเบิก & แก้ไขยอดเงิน) ──
 async function loadMyRequests(){
   if (!lineUserId) return;
-  document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+  document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดประวัติ...</div>';
   try {
     const rows = await callBackend('getMyRequests', { lineUserId });
     if (!rows || !rows.length) {
@@ -462,15 +462,18 @@ async function loadMyRequests(){
     }
     let html = '';
     rows.forEach(r => {
-      const isPending = r.status !== 'Transferred';
-      const bc = !isPending ? 'badge-transferred' : 'badge-pending';
-      const st = !isPending ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
+      // ตรวจสอบสถานะ: ถ้ายอดนี้มีคำว่า Transferred ถือว่าโอนแล้ว (นอกนั้นถือว่ารอดำเนินการทั้งหมด)
+      const isTransferred = (r.status === 'Transferred' || r.status === 'โอนแล้ว');
+      const bc = isTransferred ? 'badge-transferred' : 'badge-pending';
+      const st = isTransferred ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
       
-      // 🌟 สร้างปุ่มแก้ไขยอดเงิน ถ้าสถานะเป็น "รอดำเนินการ"
-      const editBtn = isPending ? `
-        <button class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.8rem;">
-          <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
-        </button>` : '';
+      // 🌟 สร้างปุ่มแก้ไขยอดเงิน ถ้าสถานะเป็น "รอดำเนินการ" 🌟
+      const editBtn = !isTransferred ? `
+        <div class="col-12 mt-2 pt-2 border-top">
+          <button class="btn btn-sm btn-outline-primary w-100" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.85rem; font-weight:600;">
+            <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
+          </button>
+        </div>` : '';
 
       html += `
         <div class="section-card mb-2">
@@ -484,8 +487,8 @@ async function loadMyRequests(){
               <div class="col-6"><span class="text-muted">รหัส:</span> ${r.empId}</div>
               <div class="col-6"><span class="text-muted">หน่วยงาน:</span> ${r.site}</div>
               <div class="col-6"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
-              <div class="col-6"><span class="text-muted">ประเภท:</span> ${r.type || '-'}</div>
-              <div class="col-6 text-end"><b class="text-success">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+              <div class="col-6"><span class="text-muted">ประเภท:</span> <span class="text-primary">${r.type || '-'}</span></div>
+              <div class="col-6 text-end"><b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
             </div>
             ${editBtn}
           </div>
@@ -516,10 +519,11 @@ async function editReqAmount(reqId, oldAmount) {
   if (newAmount && newAmount != oldAmount) {
     Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     try {
+      // ส่งคำสั่งไปที่ Backend เพื่ออัปเดตยอด
       const r = await callBackend('editRequestAmount', { reqId: reqId, newAmount: newAmount, lineUserId: lineUserId });
       if (r.success) {
         Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'แก้ไขยอดเงินเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
-        loadMyRequests(); // โหลดข้อมูลใหม่
+        loadMyRequests(); // โหลดข้อมูลใหม่หลังจากแก้เสร็จ
       } else {
         Swal.fire('ผิดพลาด', r.message, 'error');
       }
