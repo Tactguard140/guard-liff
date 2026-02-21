@@ -336,69 +336,70 @@ function handleSiteChange() {
   const arrow = document.getElementById('site-emp-arrow');
 
   if (!siteId) {
-    card.style.display = 'none';
+    if (card) card.style.display = 'none';
     return;
   }
   
-  // โชว์กล่องและโหลดข้อมูล
+  // โชว์กล่องและพับรายชื่อเก็บไว้เป็นค่าเริ่มต้นเสมอ
   card.style.display = 'block';
-  // บังคับให้พับเก็บไว้เป็นค่าเริ่มต้นเสมอเมื่อเปลี่ยนหน่วยงาน
   listContainer.style.display = 'none';
-  arrow.classList.remove('fa-chevron-up');
-  arrow.classList.add('fa-chevron-down');
+  arrow.className = 'fas fa-chevron-down ms-auto';
   
+  // สั่งโหลดรายชื่อ
   loadSiteEmployees(siteId);
 }
 
-async function loadSiteEmployees(siteId) {
+function loadSiteEmployees(siteId) {
   const listEl = document.getElementById('site-emp-list');
   listEl.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</div>';
   
-  try {
-    const emps = await callBackend('getEmployeesBySite', { siteId: siteId });
-    if (!emps || emps.length === 0) {
-      listEl.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.85rem;">ไม่พบรายชื่อพนักงานในหน่วยงานนี้</div>';
-      return;
-    }
-    
-    let html = '';
-    emps.forEach(emp => {
-      html += `
-        <div class="site-emp-item">
-          <div>
-            <div style="font-weight:700; color:var(--navy);">${emp.name}</div>
-            <div style="color:#6b7280; font-size:0.75rem;"><i class="fas fa-id-badge me-1"></i> รหัส: ${emp.id}</div>
+  // 🌟 เรียกฟังก์ชันหลังบ้านผ่าน google.script.run โดยตรง 🌟
+  google.script.run
+    .withSuccessHandler(function(emps) {
+      if (!emps || emps.length === 0) {
+        listEl.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.85rem;">ไม่พบรายชื่อพนักงานในหน่วยงานนี้</div>';
+        return;
+      }
+      
+      let html = '';
+      emps.forEach(emp => {
+        html += `
+          <div class="site-emp-item">
+            <div>
+              <div style="font-weight:700; color:var(--navy);">${emp.name}</div>
+              <div style="color:#6b7280; font-size:0.75rem;"><i class="fas fa-id-badge me-1"></i> รหัส: ${emp.id}</div>
+            </div>
+            <button class="btn-quick-add" type="button" onclick="quickAddEmp('${emp.id}', '${emp.name}')">
+              <i class="fas fa-plus me-1"></i> เบิก
+            </button>
           </div>
-          <button class="btn-quick-add" onclick="quickAddEmp('${emp.id}', '${emp.name}')">
-            <i class="fas fa-plus me-1"></i> เบิก
-          </button>
-        </div>
-      `;
-    });
-    listEl.innerHTML = html;
-  } catch (err) {
-    listEl.innerHTML = '<div class="text-center py-3 text-danger" style="font-size:0.85rem;">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
-  }
+        `;
+      });
+      listEl.innerHTML = html;
+    })
+    .withFailureHandler(function(err) {
+      listEl.innerHTML = '<div class="text-center py-3 text-danger" style="font-size:0.85rem;">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+      console.error("Load Emp Error:", err);
+    })
+    .liffGetEmployeesBySite(siteId);
 }
-
+  
 function toggleSiteEmpList() {
   const container = document.getElementById('site-emp-list-container');
   const arrow = document.getElementById('site-emp-arrow');
   
-  // เช็คสถานะการแสดงผล
+  if (!container || !arrow) return;
+
+  // สลับสถานะเปิด-ปิด พร้อมเปลี่ยนไอคอนลูกศร
   if (container.style.display === 'none' || container.style.display === '') {
-    // กรณีซ่อนอยู่ ให้เปิดขึ้นมา
     container.style.display = 'block';
-    arrow.classList.remove('fa-chevron-down');
-    arrow.classList.add('fa-chevron-up');
+    arrow.className = 'fas fa-chevron-up ms-auto';
   } else {
-    // กรณีเปิดอยู่ ให้พับเก็บ
     container.style.display = 'none';
-    arrow.classList.remove('fa-chevron-up');
-    arrow.classList.add('fa-chevron-down');
+    arrow.className = 'fas fa-chevron-down ms-auto';
   }
 }
-
+  
 function quickAddEmp(id, name) {
   // 1. เช็คว่ามีคนนี้อยู่ในช่องเบิกแล้วหรือยัง (กันกดเบิ้ล)
   const existingInputs = document.querySelectorAll('.emp-id');
