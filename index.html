@@ -402,20 +402,39 @@ async function submitRequests(){
   if (!siteId) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหน่วยงาน', 'warning'); return; }
 
   let rows = [], hasErr = false;
+  let tempIds = []; // 🌟 เก็บ ID ไว้เช็คซ้ำบนหน้าเว็บ
+  let duplicateInForm = false;
+
   document.querySelectorAll('.emp-card').forEach(card => {
     const id  = card.querySelector('.emp-id').value;
     const nm  = card.querySelector('.emp-name').value;
     const sh  = card.querySelector('.emp-shift').value;
     const amt = card.querySelector('.emp-amount').value;
-    const typ = card.querySelector('.emp-type').value; // 🌟 เก็บค่าประเภท
+    const typ = card.querySelector('.emp-type').value;
 
     if (!id && !amt) return;
+    
     if (!id || !amt || !nm || nm.includes('⚠️') || nm === 'กำลังค้นหา...') {
       card.style.borderColor = '#ef4444'; hasErr = true; return;
     }
+    
+    // 🌟 เช็คว่ากรอกรหัสพนักงานซ้ำในหน้าเดียวกันหรือไม่
+    if (tempIds.includes(id)) {
+      duplicateInForm = true;
+      card.style.borderColor = '#ef4444';
+    }
+    tempIds.push(id);
+    
     card.style.borderColor = '';
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ }); // 🌟 แนบ Type ไปบันทึกด้วย
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ }); 
   });
+
+  // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
+  if (duplicateInForm) {
+    Swal.fire('ข้อมูลซ้ำซ้อน', 'คุณกรอกรหัสพนักงานซ้ำกันมากกว่า 1 รายการ กรุณาลบกล่องที่ซ้ำออก', 'error');
+    setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => c.style.borderColor = ''), 3000);
+    return;
+  }
 
   if (hasErr) {
     Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง', 'error');
@@ -440,13 +459,22 @@ async function submitRequests(){
       userId:   lineUserId,
       rows:     JSON.stringify(rows)
     });
+    
     if (r.success) {
       await Swal.fire({ icon: 'success', title: 'ส่งสำเร็จ!', text: 'Admin จะดำเนินการโอนเงินต่อไป', confirmButtonColor: '#06C755' });
       document.getElementById('siteSelect').value = '';
       document.getElementById('empList').innerHTML = '';
       empRowCount = 0; addEmpRow();
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else Swal.fire('ผิดพลาด', r.message || 'ไม่ทราบสาเหตุ', 'error');
+    } else {
+      // 🌟 แสดงหน้าต่าง Error หรูๆ กรณีมีคนเบิกไปแล้ว
+      Swal.fire({
+        icon: 'error',
+        title: 'ไม่สามารถเบิกได้!',
+        html: `<span style="color:#ef4444; font-weight:600;">${r.message.replace(/\n/g, '<br>')}</span>`,
+        confirmButtonColor: '#101B4D'
+      });
+    }
   } catch(e) { Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error'); }
 }
 
