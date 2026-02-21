@@ -534,13 +534,26 @@ async function loadMyRequests(){
             <span class="badge rounded-pill ${bc}" style="font-size:.75rem;padding:3px 9px;">${st}</span>
           </div>
           <div class="form-wrap">
-            <div class="row g-1" style="font-size:.85rem;">
+            <div class="row g-1" style="font-size:.85rem; align-items: center;">
               <div class="col-6"><span class="text-muted">พนักงาน:</span> <b>${r.empName}</b></div>
               <div class="col-6"><span class="text-muted">รหัส:</span> ${r.empId}</div>
               <div class="col-6"><span class="text-muted">หน่วยงาน:</span> ${r.site}</div>
               <div class="col-3"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
               <div class="col-3 text-end"><b class="text-success">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
-            </div>
+              
+              <div class="col-12 mt-2">
+                <div class="d-flex align-items-center">
+                  <span class="text-muted me-2" style="white-space: nowrap;">ประเภทการเบิก:</span>
+                  <select class="form-select form-select-sm req-type-select" style="font-size:.85rem;">
+                    <option value="" disabled selected>-- เลือกประเภท --</option>
+                    <option value="เบิกรายวันคนใหม่">เบิกรายวันคนใหม่</option>
+                    <option value="เบิกล่วงหน้า">เบิกล่วงหน้า</option>
+                    <option value="รับสดควงเวร">รับสดควงเวร</option>
+                    <option value="รับสดรายวัน">รับสดรายวัน</option>
+                  </select>
+                </div>
+              </div>
+              </div>
           </div>
         </div>`;
     });
