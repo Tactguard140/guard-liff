@@ -305,15 +305,29 @@ function addEmpRow(){
   updateSummary();
 }
 
-async function findEmpName(input){
-  const id = input.value;
-  const nameEl = input.closest('.emp-card').querySelector('.emp-name');
-  if (String(id).length < 3) { nameEl.value = ''; return; }
-  nameEl.value = 'กำลังค้นหา...';
-  try {
-    const r = await callBackend('findEmployee', { empId: id });
-    nameEl.value = r.found ? r.name : '⚠️ ไม่พบรหัสนี้';
-  } catch(e) { nameEl.value = '⚠️ โหลดไม่ได้'; }
+function findEmpName(inputElement) {
+  const empId = $(inputElement).val();
+  if (!empId) return;
+
+  const rowDiv = $(inputElement).closest('.emp-card'); // หา div กรอบของพนักงานคนนี้
+  rowDiv.find('.emp-name').val('กำลังค้นหา...');
+
+  // เรียก Backend ไปค้นหาพนักงาน
+  google.script.run.withSuccessHandler(function(res) {
+    if (res.success) {
+      // 1. ใส่ชื่อพนักงาน
+      rowDiv.find('.emp-name').val(res.empName);
+      
+      // 2. 🌟 บังคับ Dropdown ให้เลือก "หน่วยงานประจำ" ของพนักงานคนนี้
+      if (res.defaultSite) {
+        rowDiv.find('.emp-site').val(res.defaultSite);
+      }
+    } else {
+      rowDiv.find('.emp-name').val('ไม่พบข้อมูล');
+      rowDiv.find('.emp-site').val(''); // เคลียร์ค่าหน่วยงานถ้าไม่เจอ
+      Swal.fire('แจ้งเตือน', 'ไม่พบรหัสพนักงานนี้ในระบบ', 'warning');
+    }
+  }).getEmpInfoWithSite(empId);
 }
 
 function handleSiteChange() {
