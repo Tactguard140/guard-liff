@@ -622,7 +622,7 @@ async function ensureAllSitesLoaded(){
   window.allSitesCache = sites || [];
 
   window.siteOptionsHtml = (window.allSitesCache || [])
-  .map(s => `<option value="${s.id}">${s.name}</option>`)
+  .map(s => `<option value="${s.id}">${s.id} - ${s.name}</option>`)
   .join('');
 
   // กันกรณีว่างจริงๆ
