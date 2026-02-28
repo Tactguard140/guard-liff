@@ -39,28 +39,27 @@
     .btn-submit{position:fixed;bottom:0;left:0;right:0;border-radius:0;padding:15px;font-size:.95rem;font-weight:700;background:linear-gradient(135deg,var(--green),#00b900);border:none;color:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.15);z-index:99}
     .badge-pending{background:#fef3c7;color:#92400e}
     .badge-transferred{background:#d1fae5;color:#065f46}
+    .site-emp-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #f3f4f6; font-size:.88rem; }
+    .site-emp-item:last-child { border-bottom:none; }
+    .btn-quick-add { background:#ebf5ff; color:#3b82f6; border:1px solid #bfdbfe; border-radius:6px; padding:4px 12px; font-size:.78rem; font-weight:600; cursor:pointer; transition:0.2s; }
+    .btn-quick-add:hover { background:#dbeafe; }
   </style>
 </head>
 <body>
 
-<!-- LOADING -->
 <div id="liff-loading">
   <div class="spinner"></div>
   <p id="loading-msg" style="margin-top:14px;color:var(--navy);font-weight:600;font-size:1rem;">กำลังเชื่อมต่อ LINE...</p>
   <p id="loading-sub" style="margin-top:4px;color:#6b7280;font-size:.8rem;"></p>
 </div>
 
-<!-- ERROR -->
 <div id="error-screen">
   <div style="font-size:3rem;color:#ef4444;">⚠️</div>
   <h5 style="color:#1f2937;margin-top:10px;">เกิดข้อผิดพลาด</h5>
   <div class="err-box" id="error-detail"></div>
-  <button class="btn btn-sm btn-outline-secondary mt-3" onclick="location.reload()">
-    <i class="fas fa-rotate me-1"></i> ลองใหม่
-  </button>
+  <button class="btn btn-sm btn-outline-secondary mt-3" onclick="location.reload()"><i class="fas fa-rotate me-1"></i> ลองใหม่</button>
 </div>
 
-<!-- BLOCKED -->
 <div id="blocked-screen">
   <div style="font-size:3.5rem;margin-bottom:14px;">🚫</div>
   <h5 style="color:#1f2937;">ไม่มีสิทธิ์เข้าใช้งาน</h5>
@@ -69,12 +68,9 @@
     กรุณาแจ้ง LineUserID นี้ให้ Admin เพิ่มใน Users Sheet คอลัมน์ F
   </div>
   <div id="blocked-uid" style="margin-top:10px;font-size:.75rem;color:#374151;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:8px 12px;width:90%;max-width:380px;"></div>
-  <button class="btn btn-outline-secondary btn-sm mt-3" onclick="copyUid()">
-    <i class="fas fa-copy me-1"></i> คัดลอก LineUserID
-  </button>
+  <button class="btn btn-outline-secondary btn-sm mt-3" onclick="copyUid()"><i class="fas fa-copy me-1"></i> คัดลอก LineUserID</button>
 </div>
 
-<!-- MAIN APP -->
 <div id="main-app" style="display:none;">
   <div class="liff-header">
     <div class="d-flex align-items-center justify-content-between">
@@ -87,15 +83,10 @@
   </div>
 
   <div class="tab-bar">
-    <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')">
-      <i class="fas fa-paper-plane me-1"></i> ส่งรายการ
-    </button>
-    <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();">
-      <i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว
-    </button>
+    <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')"><i class="fas fa-paper-plane me-1"></i> ส่งรายการ</button>
+    <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();"><i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว</button>
   </div>
 
-  <!-- TAB: ส่งรายการ -->
   <div id="tab-send" class="tab-pane active">
     <div class="section-card">
       <div class="card-head"><i class="fas fa-user-circle" style="color:var(--green)"></i> ข้อมูลผู้ส่ง</div>
@@ -106,13 +97,23 @@
         </div>
         <div>
           <label class="form-label">หน่วยงาน <span class="text-danger">*</span></label>
-          <select class="form-select" id="siteSelect">
+          <select class="form-select" id="siteSelect" onchange="handleSiteChange()">
             <option value="">-- เลือกหน่วยงาน --</option>
           </select>
           <div id="site-empty-hint" class="text-warning mt-1" style="font-size:.78rem;display:none;">
             <i class="fas fa-exclamation-triangle me-1"></i>ไม่พบหน่วยงานในความรับผิดชอบ กรุณาติดต่อ Admin
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="section-card" id="site-emp-card" style="display:none;">
+      <div class="card-head" style="cursor:pointer;" onclick="toggleSiteEmpList()">
+        <span><i class="fas fa-list-ul" style="color:#f59e0b"></i> พนักงานในหน่วยงาน</span>
+        <i class="fas fa-chevron-down ms-auto" id="site-emp-arrow"></i>
+      </div>
+      <div class="form-wrap" id="site-emp-list-container" style="display:none; padding: 0;">
+        <div id="site-emp-list"></div>
       </div>
     </div>
 
@@ -130,14 +131,11 @@
     </div>
   </div>
 
-  <!-- TAB: ประวัติ -->
   <div id="tab-history" class="tab-pane">
     <div style="padding:10px;">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <b style="color:var(--navy);">รายการที่ส่งแล้ว</b>
-        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadMyRequests()">
-          <i class="fas fa-rotate me-1"></i> รีเฟรช
-        </button>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadMyRequests()"><i class="fas fa-rotate me-1"></i> รีเฟรช</button>
       </div>
       <div id="history-list">
         <div class="text-center text-muted py-5">
@@ -154,17 +152,14 @@
 
 <script>
 // =====================================================
-// ★★★ แก้ค่าสองบรรทัดนี้เท่านั้น ★★★
 const LIFF_ID    = '2009071711-LrtWbQgz';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3MfOzPz5hkSNLBGdOr_UUr0ZJu3UOuv98_yHu7UVlE7D9V2KvYe9TwgKqHJ9m4NIgw/exec';
 // =====================================================
 
-let currentUser   = null;
-let lineUserId    = null;
-let empRowCount   = 0;
-let allSitesCache = [];
+let currentUser = null;
+let lineUserId  = null;
+let empRowCount = 0;
 
-// ── UI helpers ──
 function setMsg(main, sub) {
   document.getElementById('loading-msg').textContent = main || '';
   document.getElementById('loading-sub').textContent = sub  || '';
@@ -188,37 +183,13 @@ function showMainApp(data){
   document.getElementById('user-name-display').textContent = data.name + (data.role ? ' · ' + data.role : '');
   document.getElementById('headName').value = data.name;
   populateSites(data.sites || []);
-  loadAllSites().then(() => addEmpRow());
-}
-
-// ── Load All Sites (for employee site dropdown) ──
-async function loadAllSites() {
-  try {
-    const sites = await callBackend('getAllSites', {});
-    allSitesCache = sites || [];
-  } catch(e) {
-    console.warn('loadAllSites failed:', e);
-    allSitesCache = [];
-  }
-}
-
-// ── Build site options HTML from cache ──
-function buildSiteOptions(defaultSiteName) {
-  let html = '<option value="">-- เลือกหน่วยงาน --</option>';
-  allSitesCache.forEach(s => {
-    const selected = (s.name === defaultSiteName) ? ' selected' : '';
-    html += `<option value="${s.name}"${selected}>${s.id} - ${s.name}</option>`;
-  });
-  return html;
+  addEmpRow();
 }
 function copyUid(){
   if (!lineUserId) return;
-  navigator.clipboard.writeText(lineUserId)
-    .then(() => alert('คัดลอกแล้ว'))
-    .catch(() => alert('LineUserID: ' + lineUserId));
+  navigator.clipboard.writeText(lineUserId).then(() => alert('คัดลอกแล้ว')).catch(() => alert('LineUserID: ' + lineUserId));
 }
 
-// ── callBackend ──
 async function callBackend(action, params) {
   const qs  = new URLSearchParams({ liffApi: '1', action, ...(params || {}) });
   const res  = await fetch(WEBAPP_URL + '?' + qs.toString(), { redirect: 'follow' });
@@ -227,37 +198,25 @@ async function callBackend(action, params) {
   catch(e) { throw new Error('Server error: ' + text.slice(0, 300)); }
 }
 
-// ── INIT ──
 window.addEventListener('load', async function() {
   try {
     setMsg('กำลัง init LIFF...', 'ขั้นตอน 1/2');
     await liff.init({ liffId: LIFF_ID });
-
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
-    }
+    if (!liff.isLoggedIn()) { liff.login(); return; }
 
     setMsg('กำลังตรวจสอบสิทธิ์...', 'ขั้นตอน 2/2');
     const profile = await liff.getProfile();
     lineUserId = profile.userId;
-
     const data = await callBackend('checkAndGetSites', { lineUserId });
-
-    if (!data || !data.registered) {
-      showBlocked(lineUserId);
-      return;
-    }
-
+    
+    if (!data || !data.registered) { showBlocked(lineUserId); return; }
     currentUser = data;
     showMainApp(data);
-
   } catch(err) {
     showError('<b>Error:</b> ' + err.message);
   }
 });
 
-// ── Sites ──
 function populateSites(sites){
   const sel = document.getElementById('siteSelect');
   sel.innerHTML = '<option value="">-- เลือกหน่วยงาน --</option>';
@@ -270,10 +229,12 @@ function populateSites(sites){
     o.value = s.id; o.textContent = s.name;
     sel.appendChild(o);
   });
-  if (sites.length === 1) sel.value = sites[0].id;
+  if (sites.length === 1) {
+    sel.value = sites[0].id;
+    handleSiteChange();
+  }
 }
 
-// ── Tab ──
 function switchTab(tab){
   document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el  => el.classList.remove('active'));
@@ -282,7 +243,7 @@ function switchTab(tab){
   document.getElementById('btn-submit-main').style.display = tab === 'send' ? 'block' : 'none';
 }
 
-// ── Emp rows ──
+// ── Emp rows (ฟอร์มส่งรายการ) ──
 function addEmpRow(){
   empRowCount++;
   const rid = 'emp_' + Date.now();
@@ -315,12 +276,17 @@ function addEmpRow(){
         <label class="form-label">จำนวนเงิน</label>
         <input type="number" class="form-control text-end emp-amount" placeholder="0" oninput="updateSummary()">
       </div>
-      <div class="col-12">
-        <label class="form-label">หน่วยงานที่ลง <small class="text-muted fw-normal">(ถ้าเปลี่ยนจะบันทึกหน่วยงานใหม่)</small></label>
-        <select class="form-select emp-site" style="font-size:.83rem;">
-          ${buildSiteOptions('')}
+      
+      <div class="col-12 mt-2">
+        <label class="form-label">ประเภทการเบิก</label>
+        <select class="form-select emp-type" style="font-size:.85rem;">
+          <option value="เบิกล่วงหน้า" selected>เบิกล่วงหน้า</option>
+          <option value="เบิกรายวันคนใหม่">เบิกรายวันคนใหม่</option>
+          <option value="รับสดควงเวร">รับสดควงเวร</option>
+          <option value="รับสดรายวัน">รับสดรายวัน</option>
         </select>
       </div>
+
     </div></div>`;
   document.getElementById('empList').appendChild(div);
   updateSummary();
@@ -328,21 +294,98 @@ function addEmpRow(){
 
 async function findEmpName(input){
   const id = input.value;
-  const card = input.closest('.emp-card');
-  const nameEl = card.querySelector('.emp-name');
-  const siteEl = card.querySelector('.emp-site');
+  const nameEl = input.closest('.emp-card').querySelector('.emp-name');
   if (String(id).length < 3) { nameEl.value = ''; return; }
   nameEl.value = 'กำลังค้นหา...';
   try {
     const r = await callBackend('findEmployee', { empId: id });
     nameEl.value = r.found ? r.name : '⚠️ ไม่พบรหัสนี้';
-    // ตั้งค่า default site จากข้อมูลพนักงาน (ถ้ามีค่า)
-    if (r.found && r.site && siteEl) {
-      siteEl.innerHTML = buildSiteOptions(r.site);
-    }
   } catch(e) { nameEl.value = '⚠️ โหลดไม่ได้'; }
 }
 
+function handleSiteChange() {
+  const siteId = document.getElementById('siteSelect').value;
+  const card = document.getElementById('site-emp-card');
+  const listContainer = document.getElementById('site-emp-list-container');
+  const arrow = document.getElementById('site-emp-arrow');
+
+  if (!siteId) {
+    if (card) card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  listContainer.style.display = 'none';
+  arrow.className = 'fas fa-chevron-down ms-auto';
+  loadSiteEmployees(siteId);
+}
+
+async function loadSiteEmployees(siteId) {
+  const listEl = document.getElementById('site-emp-list');
+  listEl.innerHTML = '<div class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i> กำลังโหลดข้อมูล...</div>';
+  try {
+    const emps = await callBackend('getEmployeesBySite', { siteId: siteId });
+    if (!emps || emps.length === 0) {
+      listEl.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:0.85rem;">ไม่พบรายชื่อพนักงานในหน่วยงานนี้</div>';
+      return;
+    }
+    let html = '';
+    emps.forEach(emp => {
+      html += `
+        <div class="site-emp-item">
+          <div>
+            <div style="font-weight:700; color:var(--navy);">${emp.name}</div>
+            <div style="color:#6b7280; font-size:0.75rem;"><i class="fas fa-id-badge me-1"></i> รหัส: ${emp.id}</div>
+          </div>
+          <button class="btn-quick-add" type="button" onclick="quickAddEmp('${emp.id}', '${emp.name}')">
+            <i class="fas fa-plus me-1"></i> เบิก
+          </button>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+  } catch (err) {
+    listEl.innerHTML = '<div class="text-center py-3 text-danger" style="font-size:0.85rem;">เกิดข้อผิดพลาดในการโหลดข้อมูล</div>';
+  }
+}
+  
+function toggleSiteEmpList() {
+  const container = document.getElementById('site-emp-list-container');
+  const arrow = document.getElementById('site-emp-arrow');
+  if (!container || !arrow) return;
+  if (container.style.display === 'none' || container.style.display === '') {
+    container.style.display = 'block';
+    arrow.className = 'fas fa-chevron-up ms-auto';
+  } else {
+    container.style.display = 'none';
+    arrow.className = 'fas fa-chevron-down ms-auto';
+  }
+}
+  
+function quickAddEmp(id, name) {
+  const existingInputs = document.querySelectorAll('.emp-id');
+  for (let input of existingInputs) {
+    if (input.value === id) {
+      Swal.fire({ title: 'มีรายชื่อนี้แล้ว!', icon: 'warning', toast: true, position: 'top', showConfirmButton: false, timer: 2000 });
+      return;
+    }
+  }
+  let emptyRowFound = false;
+  document.querySelectorAll('.emp-card').forEach(card => {
+    const idInput = card.querySelector('.emp-id');
+    const nameInput = card.querySelector('.emp-name');
+    if (!emptyRowFound && !idInput.value && !nameInput.value) {
+      idInput.value = id; nameInput.value = name; emptyRowFound = true;
+    }
+  });
+  if (!emptyRowFound) {
+    addEmpRow();
+    const cards = document.querySelectorAll('.emp-card');
+    const lastCard = cards[cards.length - 1];
+    lastCard.querySelector('.emp-id').value = id;
+    lastCard.querySelector('.emp-name').value = name;
+  }
+  Swal.fire({ title: 'เพิ่มลงรายการเบิกแล้ว', icon: 'success', toast: true, position: 'top', showConfirmButton: false, timer: 1500 });
+}
+  
 function updateSummary(){
   let sum = 0;
   document.querySelectorAll('.emp-amount').forEach(el => { sum += parseFloat(el.value) || 0; });
@@ -359,20 +402,39 @@ async function submitRequests(){
   if (!siteId) { Swal.fire('แจ้งเตือน', 'กรุณาเลือกหน่วยงาน', 'warning'); return; }
 
   let rows = [], hasErr = false;
+  let tempIds = []; // 🌟 เก็บ ID ไว้เช็คซ้ำบนหน้าเว็บ
+  let duplicateInForm = false;
+
   document.querySelectorAll('.emp-card').forEach(card => {
     const id  = card.querySelector('.emp-id').value;
     const nm  = card.querySelector('.emp-name').value;
     const sh  = card.querySelector('.emp-shift').value;
     const amt = card.querySelector('.emp-amount').value;
+    const typ = card.querySelector('.emp-type').value;
+
     if (!id && !amt) return;
+    
     if (!id || !amt || !nm || nm.includes('⚠️') || nm === 'กำลังค้นหา...') {
       card.style.borderColor = '#ef4444'; hasErr = true; return;
     }
+    
+    // 🌟 เช็คว่ากรอกรหัสพนักงานซ้ำในหน้าเดียวกันหรือไม่
+    if (tempIds.includes(id)) {
+      duplicateInForm = true;
+      card.style.borderColor = '#ef4444';
+    }
+    tempIds.push(id);
+    
     card.style.borderColor = '';
-    const siteEl2 = card.querySelector('.emp-site');
-    const siteVal = siteEl2 ? siteEl2.value : '';
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, site: siteVal });
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ }); 
   });
+
+  // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
+  if (duplicateInForm) {
+    Swal.fire('ข้อมูลซ้ำซ้อน', 'คุณกรอกรหัสพนักงานซ้ำกันมากกว่า 1 รายการ กรุณาลบกล่องที่ซ้ำออก', 'error');
+    setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => c.style.borderColor = ''), 3000);
+    return;
+  }
 
   if (hasErr) {
     Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง', 'error');
@@ -397,32 +459,50 @@ async function submitRequests(){
       userId:   lineUserId,
       rows:     JSON.stringify(rows)
     });
+    
     if (r.success) {
       await Swal.fire({ icon: 'success', title: 'ส่งสำเร็จ!', text: 'Admin จะดำเนินการโอนเงินต่อไป', confirmButtonColor: '#06C755' });
       document.getElementById('siteSelect').value = '';
       document.getElementById('empList').innerHTML = '';
       empRowCount = 0; addEmpRow();
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else Swal.fire('ผิดพลาด', r.message || 'ไม่ทราบสาเหตุ', 'error');
+    } else {
+      // 🌟 แสดงหน้าต่าง Error หรูๆ กรณีมีคนเบิกไปแล้ว
+      Swal.fire({
+        icon: 'error',
+        title: 'ไม่สามารถเบิกได้!',
+        html: `<span style="color:#ef4444; font-weight:600;">${r.message.replace(/\n/g, '<br>')}</span>`,
+        confirmButtonColor: '#101B4D'
+      });
+    }
   } catch(e) { Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error'); }
 }
 
-// ── History ──
+// ── History (ประวัติการเบิก & แก้ไขยอดเงิน) ──
 async function loadMyRequests(){
   if (!lineUserId) return;
-  document.getElementById('history-list').innerHTML =
-    '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i></div>';
+  document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดประวัติ...</div>';
   try {
     const rows = await callBackend('getMyRequests', { lineUserId });
     if (!rows || !rows.length) {
-      document.getElementById('history-list').innerHTML =
-        '<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายการ</div>';
+      document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายการ</div>';
       return;
     }
     let html = '';
     rows.forEach(r => {
-      const bc = r.status === 'Transferred' ? 'badge-transferred' : 'badge-pending';
-      const st = r.status === 'Transferred' ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
+      // ตรวจสอบสถานะ: ถ้ายอดนี้มีคำว่า Transferred ถือว่าโอนแล้ว (นอกนั้นถือว่ารอดำเนินการทั้งหมด)
+      const isTransferred = (r.status === 'Transferred' || r.status === 'โอนแล้ว');
+      const bc = isTransferred ? 'badge-transferred' : 'badge-pending';
+      const st = isTransferred ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
+      
+      // 🌟 สร้างปุ่มแก้ไขยอดเงิน ถ้าสถานะเป็น "รอดำเนินการ" 🌟
+      const editBtn = !isTransferred ? `
+        <div class="col-12 mt-2 pt-2 border-top">
+          <button class="btn btn-sm btn-outline-primary w-100" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.85rem; font-weight:600;">
+            <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
+          </button>
+        </div>` : '';
+
       html += `
         <div class="section-card mb-2">
           <div class="card-head d-flex justify-content-between">
@@ -430,20 +510,54 @@ async function loadMyRequests(){
             <span class="badge rounded-pill ${bc}" style="font-size:.75rem;padding:3px 9px;">${st}</span>
           </div>
           <div class="form-wrap">
-            <div class="row g-1" style="font-size:.85rem;">
+            <div class="row g-1" style="font-size:.85rem; align-items: center;">
               <div class="col-6"><span class="text-muted">พนักงาน:</span> <b>${r.empName}</b></div>
               <div class="col-6"><span class="text-muted">รหัส:</span> ${r.empId}</div>
               <div class="col-6"><span class="text-muted">หน่วยงาน:</span> ${r.site}</div>
-              <div class="col-3"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
-              <div class="col-3 text-end"><b class="text-success">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+              <div class="col-6"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
+              <div class="col-6"><span class="text-muted">ประเภท:</span> <span class="text-primary">${r.type || '-'}</span></div>
+              <div class="col-6 text-end"><b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
             </div>
+            ${editBtn}
           </div>
         </div>`;
     });
     document.getElementById('history-list').innerHTML = html;
   } catch(e) {
-    document.getElementById('history-list').innerHTML =
-      '<div class="text-center text-danger p-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+    document.getElementById('history-list').innerHTML = '<div class="text-center text-danger p-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+  }
+}
+
+// 🌟 ฟังก์ชันเรียกหน้าต่างแก้ไขยอดเงิน 🌟
+async function editReqAmount(reqId, oldAmount) {
+  const { value: newAmount } = await Swal.fire({
+    title: 'แก้ไขยอดเงิน',
+    input: 'number',
+    inputLabel: 'ระบุยอดเงินใหม่ที่ต้องการเบิก',
+    inputValue: oldAmount,
+    showCancelButton: true,
+    confirmButtonText: 'บันทึก',
+    cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#06C755',
+    inputValidator: (value) => {
+      if (!value || value <= 0) return 'กรุณาระบุยอดเงินที่ถูกต้อง!';
+    }
+  });
+
+  if (newAmount && newAmount != oldAmount) {
+    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      // ส่งคำสั่งไปที่ Backend เพื่ออัปเดตยอด
+      const r = await callBackend('editRequestAmount', { reqId: reqId, newAmount: newAmount, lineUserId: lineUserId });
+      if (r.success) {
+        Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'แก้ไขยอดเงินเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
+        loadMyRequests(); // โหลดข้อมูลใหม่หลังจากแก้เสร็จ
+      } else {
+        Swal.fire('ผิดพลาด', r.message, 'error');
+      }
+    } catch(e) {
+      Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้', 'error');
+    }
   }
 }
 </script>
