@@ -183,10 +183,9 @@ async function showMainApp(data){
   document.getElementById('user-name-display').textContent = data.name + (data.role ? ' · ' + data.role : '');
   document.getElementById('headName').value = data.name;
 
-  // dropdown หน่วยงาน (บนสุด) = หน่วยที่ดูแล
   populateSites(data.sites || []);
 
-  // ✅ dropdown หน่วยงานที่ลง (ในแต่ละพนักงาน) = หน่วยงานทั้งหมด
+  // ✅ ต้องรอให้โหลดทั้งหมดเสร็จก่อน
   await ensureAllSitesLoaded();
 
   addEmpRow();
@@ -260,8 +259,8 @@ function addEmpRow(){
   // ✅ ใช้รายการหน่วยงานทั้งหมดที่โหลดเก็บไว้ล่วงหน้าใน window.siteOptionsHtml
   // ถ้ายังไม่มี ให้โชว์ข้อความแทน
   const siteOptions = (window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '')
-    ? window.siteOptionsHtml
-    : '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>';
+  ? window.siteOptionsHtml
+  : '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>';
 
   div.innerHTML = `
     <div class="emp-head">
@@ -603,30 +602,33 @@ async function editReqAmount(reqId, oldAmount) {
     }
   }
 }
-let allSitesCache = [];
-let allSiteOptionsHtml = '';
+// ✅ เก็บ option หน่วยงานทั้งหมดไว้ที่นี่ตัวเดียว
+window.siteOptionsHtml = '';
+window.allSitesCache = [];
 
 // โหลดหน่วยงานทั้งหมด 1 ครั้ง แล้วทำ option HTML ไว้ใช้ทุกแถว
 async function ensureAllSitesLoaded(){
-  if (allSitesCache.length) return;
-
-  const res = await callBackend('getAllSites'); // backend คืน [{id,name}]
-  allSitesCache = Array.isArray(res) ? res : (res && res.sites ? res.sites : []);
-  
-  allSiteOptionsHtml = (allSitesCache || [])
-    .map(s => `<option value="${s.id}">${s.name}</option>`)
-    .join('');
-}
-async function loadAllSitesToOptions(){
   // ถ้าเคยโหลดแล้วไม่ต้องโหลดซ้ำ
   if (window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '') return;
 
-  const res = await callBackend('getAllSites'); // คาดหวังเป็น array [{id,name}] หรือ object {sites:[...]}
-  const sites = Array.isArray(res) ? res : (res && res.sites ? res.sites : []);
+  const res = await callBackend('getAllSites');
 
-  window.siteOptionsHtml = (sites || [])
+  // รองรับรูปแบบที่ backend อาจส่งกลับมาได้หลายแบบ
+  const sites = Array.isArray(res)
+    ? res
+    : (res && Array.isArray(res.sites) ? res.sites
+      : (res && res.success && Array.isArray(res.data) ? res.data : []));
+
+  window.allSitesCache = sites || [];
+
+  window.siteOptionsHtml = (window.allSitesCache || [])
     .map(s => `<option value="${s.id}">${s.name}</option>`)
     .join('');
+
+  // กันกรณีว่างจริงๆ
+  if (!window.siteOptionsHtml) {
+    window.siteOptionsHtml = '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>';
+  }
 }
 </script>
 </body>
