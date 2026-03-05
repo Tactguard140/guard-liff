@@ -648,21 +648,19 @@ async function ensureAllSitesLoaded(){
 
   const res = await callBackend('getAllSites'); // backend คืน [{id,name}]
   allSitesCache = Array.isArray(res) ? res : (res && res.sites ? res.sites : []);
-  
-  allSiteOptionsHtml = (allSitesCache || [])
-    .map(s => `<option value="${s.id}">${s.name}</option>`)
+
+  // ใช้ value เป็น site name เพื่อให้ตรงกับ defaultSite ที่ findEmpName set และบันทึกลง sheet
+  const optHtml = (allSitesCache || [])
+    .map(s => `<option value="${s.name}">${s.id} - ${s.name}</option>`)
     .join('');
+
+  allSiteOptionsHtml     = optHtml;
+  window.siteOptionsHtml = optHtml; // sync ให้ addEmpRow() อ่านได้
 }
+
 async function loadAllSitesToOptions(){
-  // ถ้าเคยโหลดแล้วไม่ต้องโหลดซ้ำ
-  if (window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '') return;
-
-  const res = await callBackend('getAllSites'); // คาดหวังเป็น array [{id,name}] หรือ object {sites:[...]}
-  const sites = Array.isArray(res) ? res : (res && res.sites ? res.sites : []);
-
-  window.siteOptionsHtml = (sites || [])
-    .map(s => `<option value="${s.id}">${s.name}</option>`)
-    .join('');
+  // delegate ไปที่ ensureAllSitesLoaded เพื่อไม่ให้ call API ซ้ำ
+  await ensureAllSitesLoaded();
 }
 </script>
 </body>
