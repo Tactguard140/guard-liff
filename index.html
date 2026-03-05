@@ -540,12 +540,17 @@ async function loadMyRequests(){
       const bc = isTransferred ? 'badge-transferred' : 'badge-pending';
       const st = isTransferred ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
       
-      // 🌟 สร้างปุ่มแก้ไขยอดเงิน ถ้าสถานะเป็น "รอดำเนินการ" 🌟
+      // 🌟 สร้างปุ่มแก้ไขยอดเงิน + ยกเลิกเบิก ถ้าสถานะเป็น "รอดำเนินการ" 🌟
       const editBtn = !isTransferred ? `
         <div class="col-12 mt-2 pt-2 border-top">
-          <button class="btn btn-sm btn-outline-primary w-100" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.85rem; font-weight:600;">
-            <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
-          </button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.85rem; font-weight:600;">
+              <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
+            </button>
+            <button class="btn btn-sm btn-outline-danger flex-fill" onclick="cancelReq('${r.reqId}')" style="font-size:0.85rem; font-weight:600;">
+              <i class="fas fa-times-circle me-1"></i> ยกเลิกเบิก
+            </button>
+          </div>
         </div>` : '';
 
       html += `
@@ -605,6 +610,35 @@ async function editReqAmount(reqId, oldAmount) {
     }
   }
 }
+
+// 🌟 ฟังก์ชันยกเลิกการเบิก 🌟
+async function cancelReq(reqId) {
+  const cf = await Swal.fire({
+    title: 'ยืนยันยกเลิกเบิก?',
+    text: 'รายการนี้จะถูกลบออกและไม่สามารถกู้คืนได้',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'ยืนยันยกเลิก',
+    cancelButtonText: 'ไม่ยกเลิก',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280'
+  });
+  if (!cf.isConfirmed) return;
+
+  Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('cancelRequest', { reqId: reqId, lineUserId: lineUserId });
+    if (r.success) {
+      Swal.fire({ icon: 'success', title: 'ยกเลิกสำเร็จ', text: 'ลบรายการเบิกเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
+      loadMyRequests();
+    } else {
+      Swal.fire('ผิดพลาด', r.message, 'error');
+    }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้', 'error');
+  }
+}
+
 let allSitesCache = [];
 let allSiteOptionsHtml = '';
 
