@@ -16,7 +16,7 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     #error-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
     .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;font-size:.82rem;color:#991b1b;max-width:400px;word-break:break-all;margin-top:12px;text-align:left}
-    #blocked-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
+    #register-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
     .liff-header{background:linear-gradient(135deg,var(--navy),#1e3a8a);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
     .user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:.82rem;margin-top:5px}
     .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
@@ -60,15 +60,20 @@
   <button class="btn btn-sm btn-outline-secondary mt-3" onclick="location.reload()"><i class="fas fa-rotate me-1"></i> ลองใหม่</button>
 </div>
 
-<div id="blocked-screen">
-  <div style="font-size:3.5rem;margin-bottom:14px;">🚫</div>
-  <h5 style="color:#1f2937;">ไม่มีสิทธิ์เข้าใช้งาน</h5>
-  <p style="color:#6b7280;font-size:.9rem;">LINE บัญชีนี้ยังไม่ได้ลงทะเบียนในระบบ</p>
-  <div style="background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#78350f;margin-top:10px;max-width:380px;">
-    กรุณาแจ้ง LineUserID นี้ให้ Admin เพิ่มใน Users Sheet คอลัมน์ F
+<div id="register-screen">
+  <div style="font-size:3rem;margin-bottom:10px;">🔐</div>
+  <h5 style="color:#1f2937;margin-bottom:4px;">ยืนยันตัวตนครั้งแรก</h5>
+  <p style="color:#6b7280;font-size:.88rem;margin-bottom:18px;">กรุณากรอก Password ที่ได้รับจาก Admin</p>
+  <div style="width:90%;max-width:340px;">
+    <input type="password" id="reg-password" class="form-control mb-3"
+      placeholder="Password" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')submitPassword()"
+      style="text-align:center;font-size:1.1rem;letter-spacing:.12em;">
+    <div id="reg-error" style="color:#ef4444;font-size:.83rem;min-height:20px;margin-bottom:8px;"></div>
+    <button class="btn btn-primary w-100" id="reg-btn" onclick="submitPassword()">
+      <i class="fas fa-unlock-alt me-2"></i>เข้าใช้งาน
+    </button>
   </div>
-  <div id="blocked-uid" style="margin-top:10px;font-size:.75rem;color:#374151;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:8px 12px;width:90%;max-width:380px;"></div>
-  <button class="btn btn-outline-secondary btn-sm mt-3" onclick="copyUid()"><i class="fas fa-copy me-1"></i> คัดลอก LineUserID</button>
 </div>
 
 <div id="main-app" style="display:none;">
@@ -170,11 +175,38 @@ function showError(msg){
   document.getElementById('error-detail').innerHTML = msg;
   document.getElementById('error-screen').style.display = 'flex';
 }
-function showBlocked(uid){
+function showRegisterScreen(uid){
   hideLoading();
   lineUserId = uid;
-  document.getElementById('blocked-uid').textContent = 'LineUserID: ' + uid;
-  document.getElementById('blocked-screen').style.display = 'flex';
+  document.getElementById('register-screen').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('reg-password').focus(); }, 100);
+}
+
+async function submitPassword(){
+  const pw  = (document.getElementById('reg-password').value || '').trim();
+  const errEl = document.getElementById('reg-error');
+  const btn   = document.getElementById('reg-btn');
+  errEl.textContent = '';
+  if (!pw) { errEl.textContent = 'กรุณากรอก Password'; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังตรวจสอบ...';
+  try {
+    const data = await callBackend('registerByPassword', { password: pw, lineUserId: lineUserId });
+    if (data && data.registered) {
+      document.getElementById('register-screen').style.display = 'none';
+      currentUser = data;
+      await showMainApp(data);
+    } else {
+      errEl.textContent = (data && data.message) ? data.message : 'Password ไม่ถูกต้อง';
+      document.getElementById('reg-password').value = '';
+      document.getElementById('reg-password').focus();
+    }
+  } catch(err) {
+    errEl.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-unlock-alt me-2"></i>เข้าใช้งาน';
+  }
 }
 async function showMainApp(data){
   hideLoading();
@@ -190,10 +222,6 @@ async function showMainApp(data){
   await ensureAllSitesLoaded();
 
   addEmpRow();
-}
-function copyUid(){
-  if (!lineUserId) return;
-  navigator.clipboard.writeText(lineUserId).then(() => alert('คัดลอกแล้ว')).catch(() => alert('LineUserID: ' + lineUserId));
 }
 
 async function callBackend(action, params) {
@@ -215,7 +243,7 @@ window.addEventListener('load', async function() {
     lineUserId = profile.userId;
     const data = await callBackend('checkAndGetSites', { lineUserId });
     
-    if (!data || !data.registered) { showBlocked(lineUserId); return; }
+    if (!data || !data.registered) { showRegisterScreen(lineUserId); return; }
     currentUser = data;
     await showMainApp(data);
   } catch(err) {
