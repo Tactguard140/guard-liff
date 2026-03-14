@@ -342,6 +342,11 @@ function addEmpRow(){
           </select>
         </div>
 
+        <div class="col-12 mt-2">
+          <label class="form-label">โน้ต <small class="text-muted">(ถ้ามี)</small></label>
+          <input type="text" class="form-control emp-note" placeholder="หมายเหตุเพิ่มเติม...">
+        </div>
+
       </div>
     </div>
   `;
@@ -483,6 +488,7 @@ async function submitRequests(){
     const amt      = card.querySelector('.emp-amount').value;
     const typ      = card.querySelector('.emp-type').value;
     const empSite  = card.querySelector('.emp-site').value; // หน่วยงานที่ลง (ถ้าเลือก)
+    const empNote  = (card.querySelector('.emp-note') ? card.querySelector('.emp-note').value : '').trim();
 
     if (!id && !amt) return;
 
@@ -499,7 +505,7 @@ async function submitRequests(){
 
     card.style.borderColor = '';
     // ถ้าเลือกหน่วยงานที่ลงไว้ → ใช้ค่านั้น, ถ้าไม่ → ใช้หน่วยงานประจำ (defaultSite ที่ dropdown ถูก set ไว้แล้ว)
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName });
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote });
   });
 
   // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
