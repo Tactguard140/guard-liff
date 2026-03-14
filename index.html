@@ -557,7 +557,9 @@ async function submitRequests(){
   } catch(e) { Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error'); }
 }
 
-// ── History (ประวัติการเบิก & แก้ไขยอดเงิน) ──
+// ── History (ประวัติการเบิก & แก้ไขรายการ) ──
+window._reqDataCache = {};  // เก็บ snapshot ของแต่ละ row ไว้ให้ editReqAmount ใช้
+
 async function loadMyRequests(){
   if (!lineUserId) return;
   document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดประวัติ...</div>';
@@ -567,19 +569,26 @@ async function loadMyRequests(){
       document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายการ</div>';
       return;
     }
+    window._reqDataCache = {};
     let html = '';
     rows.forEach(r => {
+      // เก็บ snapshot ไว้ใช้ใน editReqAmount
+      window._reqDataCache[r.reqId] = { amount: r.amount, type: r.type, note: r.note || '', site: r.site };
+
       // ตรวจสอบสถานะ: ถ้ายอดนี้มีคำว่า Transferred ถือว่าโอนแล้ว (นอกนั้นถือว่ารอดำเนินการทั้งหมด)
       const isTransferred = (r.status === 'Transferred' || r.status === 'โอนแล้ว');
       const bc = isTransferred ? 'badge-transferred' : 'badge-pending';
       const st = isTransferred ? '✅ โอนแล้ว' : '⏳ รอดำเนินการ';
-      
-      // 🌟 สร้างปุ่มแก้ไขยอดเงิน + ยกเลิกเบิก ถ้าสถานะเป็น "รอดำเนินการ" 🌟
+
+      // แถวโน้ต (แสดงเฉพาะเมื่อมีค่า)
+      const noteRow = r.note ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${r.note}</span></div>` : '';
+
+      // 🌟 ปุ่มแก้ไข + ยกเลิกเบิก ถ้าสถานะเป็น "รอดำเนินการ" 🌟
       const editBtn = !isTransferred ? `
         <div class="col-12 mt-2 pt-2 border-top">
           <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="editReqAmount('${r.reqId}', ${r.amount})" style="font-size:0.85rem; font-weight:600;">
-              <i class="fas fa-edit me-1"></i> แก้ไขยอดเงิน
+            <button class="btn btn-sm btn-outline-primary flex-fill" onclick="editReqAmount('${r.reqId}')" style="font-size:0.85rem; font-weight:600;">
+              <i class="fas fa-edit me-1"></i> แก้ไข
             </button>
             <button class="btn btn-sm btn-outline-danger flex-fill" onclick="cancelReq('${r.reqId}')" style="font-size:0.85rem; font-weight:600;">
               <i class="fas fa-times-circle me-1"></i> ยกเลิกเบิก
@@ -601,6 +610,7 @@ async function loadMyRequests(){
               <div class="col-6"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
               <div class="col-6"><span class="text-muted">ประเภท:</span> <span class="text-primary">${r.type || '-'}</span></div>
               <div class="col-6 text-end"><b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+              ${noteRow}
             </div>
             ${editBtn}
           </div>
@@ -612,36 +622,97 @@ async function loadMyRequests(){
   }
 }
 
-// 🌟 ฟังก์ชันเรียกหน้าต่างแก้ไขยอดเงิน 🌟
-async function editReqAmount(reqId, oldAmount) {
-  const { value: newAmount } = await Swal.fire({
-    title: 'แก้ไขยอดเงิน',
-    input: 'number',
-    inputLabel: 'ระบุยอดเงินใหม่ที่ต้องการเบิก',
-    inputValue: oldAmount,
+// 🌟 ฟังก์ชันแก้ไขรายการเบิก (amount, ประเภท, note, หน่วยงานที่ลง) 🌟
+async function editReqAmount(reqId) {
+  const cur = (window._reqDataCache || {})[reqId] || {};
+  const curAmount = cur.amount != null ? cur.amount : 0;
+  const curType   = cur.type  || 'เบิกล่วงหน้า';
+  const curNote   = cur.note  || '';
+  const curSite   = cur.site  || '';
+
+  // โหลด site options (ใช้ cache ที่โหลดแล้วตอน init)
+  await ensureAllSitesLoaded();
+  const siteOptsHtml = (allSitesCache || [])
+    .map(s => `<option value="${s.name}"${s.name === curSite ? ' selected' : ''}>${s.id} - ${s.name}</option>`)
+    .join('');
+  const typeList = ['เบิกล่วงหน้า', 'เบิกรายวันคนใหม่', 'รับสดควงเวร', 'รับสดรายวัน'];
+  const typeOptsHtml = typeList
+    .map(t => `<option value="${t}"${t === curType ? ' selected' : ''}>${t}</option>`)
+    .join('');
+
+  const { value: formValues, isConfirmed } = await Swal.fire({
+    title: 'แก้ไขรายการเบิก',
+    html: `
+      <div style="text-align:left; padding: 0 4px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">จำนวนเงิน (฿)</label>
+          <input id="swal-amount" type="number" class="swal2-input"
+            value="${curAmount}" placeholder="0" min="1"
+            style="margin:0; width:100%; box-sizing:border-box;">
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">ประเภทการเบิก</label>
+          <select id="swal-type" class="swal2-select"
+            style="margin:0; width:100%; display:block; box-sizing:border-box;">
+            ${typeOptsHtml}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">หน่วยงานที่ลง</label>
+          <select id="swal-site" class="swal2-select"
+            style="margin:0; width:100%; display:block; box-sizing:border-box;">
+            <option value="">-- ไม่เปลี่ยน (คงเดิม) --</option>
+            ${siteOptsHtml}
+          </select>
+        </div>
+        <div style="margin-bottom:4px;">
+          <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">โน้ต <span style="font-weight:400; color:#888;">(ถ้ามี)</span></label>
+          <input id="swal-note" type="text" class="swal2-input"
+            value="${curNote.replace(/"/g, '&quot;')}" placeholder="หมายเหตุเพิ่มเติม..."
+            style="margin:0; width:100%; box-sizing:border-box;">
+        </div>
+      </div>`,
     showCancelButton: true,
     confirmButtonText: 'บันทึก',
     cancelButtonText: 'ยกเลิก',
     confirmButtonColor: '#06C755',
-    inputValidator: (value) => {
-      if (!value || value <= 0) return 'กรุณาระบุยอดเงินที่ถูกต้อง!';
+    focusConfirm: false,
+    preConfirm: () => {
+      const amount = parseFloat(document.getElementById('swal-amount').value);
+      if (!amount || amount <= 0) {
+        Swal.showValidationMessage('กรุณาระบุยอดเงินที่ถูกต้อง');
+        return false;
+      }
+      const selSite = document.getElementById('swal-site').value;
+      return {
+        amount: amount,
+        type:   document.getElementById('swal-type').value,
+        site:   selSite || curSite,   // ถ้าไม่เลือกใหม่ ใช้ค่าเดิม
+        note:   document.getElementById('swal-note').value.trim()
+      };
     }
   });
 
-  if (newAmount && newAmount != oldAmount) {
-    Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    try {
-      // ส่งคำสั่งไปที่ Backend เพื่ออัปเดตยอด
-      const r = await callBackend('editRequestAmount', { reqId: reqId, newAmount: newAmount, lineUserId: lineUserId });
-      if (r.success) {
-        Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'แก้ไขยอดเงินเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
-        loadMyRequests(); // โหลดข้อมูลใหม่หลังจากแก้เสร็จ
-      } else {
-        Swal.fire('ผิดพลาด', r.message, 'error');
-      }
-    } catch(e) {
-      Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้', 'error');
+  if (!isConfirmed || !formValues) return;
+
+  Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const res = await callBackend('editRequestAmount', {
+      reqId:     reqId,
+      lineUserId: lineUserId,
+      newAmount: formValues.amount,
+      newType:   formValues.type,
+      newSite:   formValues.site,
+      newNote:   formValues.note
+    });
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'แก้ไขรายการเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
+      loadMyRequests();
+    } else {
+      Swal.fire('ผิดพลาด', res.message, 'error');
     }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้', 'error');
   }
 }
 
