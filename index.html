@@ -172,6 +172,13 @@ let currentUser = null;
 let lineUserId  = null;
 let empRowCount = 0;
 
+function fmtDate(s) {
+  if (!s) return '-';
+  const p = s.split('-');
+  if (p.length !== 3) return s;
+  return p[2] + '-' + p[1] + '-' + p[0];
+}
+
 function setMsg(main, sub) {
   document.getElementById('loading-msg').textContent = main || '';
   document.getElementById('loading-sub').textContent = sub  || '';
@@ -382,6 +389,11 @@ function addEmpRow(){
           </select>
         </div>
 
+        <div class="col-12 mt-2 work-date-wrap d-none">
+          <label class="form-label">วันที่ลงงาน</label>
+          <input type="date" class="form-control emp-work-date">
+        </div>
+
         <div class="col-12 mt-2">
           <label class="form-label">หน่วยงานที่ลง</label>
           <select class="form-select emp-site" style="font-size:.85rem;">
@@ -400,6 +412,19 @@ function addEmpRow(){
   `;
 
   document.getElementById('empList').appendChild(div);
+
+  // --- เพิ่ม Event Listener สำหรับเปลี่ยนประเภทเงินเบิก (LIFF) ---
+  const typeSel = div.querySelector('.emp-type');
+  const workWrap = div.querySelector('.work-date-wrap');
+  typeSel.addEventListener('change', function() {
+    if (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน') {
+      workWrap.classList.remove('d-none');
+    } else {
+      workWrap.classList.add('d-none');
+      div.querySelector('.emp-work-date').value = '';
+    }
+  });
+
   updateSummary();
 }
 async function findEmpName(inputElement) {
@@ -542,6 +567,7 @@ async function submitRequests(){
     const typ      = card.querySelector('.emp-type').value;
     const empSite  = card.querySelector('.emp-site').value; // หน่วยงานที่ลง (ถ้าเลือก)
     const empNote  = (card.querySelector('.emp-note') ? card.querySelector('.emp-note').value : '').trim();
+    const wd       = (card.querySelector('.emp-work-date') ? card.querySelector('.emp-work-date').value : '');
 
     if (!id && !amt) return;
 
@@ -558,7 +584,7 @@ async function submitRequests(){
 
     card.style.borderColor = '';
     // ถ้าเลือกหน่วยงานที่ลงไว้ → ใช้ค่านั้น, ถ้าไม่ → ใช้หน่วยงานประจำ (defaultSite ที่ dropdown ถูก set ไว้แล้ว)
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote });
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd });
   });
 
   // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
@@ -633,7 +659,7 @@ async function loadMyRequests(){
     let html = '';
     rows.forEach(r => {
       // เก็บ snapshot ไว้ใช้ใน editReqAmount
-      window._reqDataCache[r.reqId] = { amount: r.amount, type: r.type, note: r.note || '', site: r.site };
+      window._reqDataCache[r.reqId] = { amount: r.amount, type: r.type, note: r.note || '', site: r.site, workDate: r.workDate || '' };
 
       // ตรวจสอบสถานะ
       const isTransferred = (r.status === 'Transferred' || r.status === 'โอนแล้ว' || r.status === '✅ โอนแล้ว');
@@ -674,7 +700,7 @@ async function loadMyRequests(){
               <div class="col-6"><span class="text-muted">หน่วยงาน:</span> ${r.site}</div>
               <div class="col-6"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
               <div class="col-6"><span class="text-muted">ประเภท:</span> <span class="text-primary">${r.type || '-'}</span></div>
-              <div class="col-6 text-end"><b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+              <div class="col-6 text-end">${ r.workDate ? `<small class="text-success d-block">ลงงาน: ${fmtDate(r.workDate)}</small>` : '' }<b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
               ${noteRow}
             </div>
             ${editBtn}
@@ -730,6 +756,12 @@ async function editReqAmount(reqId) {
             ${siteOptsHtml}
           </select>
         </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">วันที่ลงงาน <span style="font-weight:400; color:#888;">(ถ้ามี)</span></label>
+          <input id="swal-workdate" type="date" class="swal2-input"
+            value="${cur.workDate || ''}"
+            style="margin:0; width:100%; box-sizing:border-box;">
+        </div>
         <div style="margin-bottom:4px;">
           <label style="font-weight:600; font-size:.85rem; display:block; margin-bottom:4px;">โน้ต <span style="font-weight:400; color:#888;">(ถ้ามี)</span></label>
           <input id="swal-note" type="text" class="swal2-input"
@@ -753,7 +785,8 @@ async function editReqAmount(reqId) {
         amount: amount,
         type:   document.getElementById('swal-type').value,
         site:   selSite || curSite,   // ถ้าไม่เลือกใหม่ ใช้ค่าเดิม
-        note:   document.getElementById('swal-note').value.trim()
+        note:   document.getElementById('swal-note').value.trim(),
+        workDate: document.getElementById('swal-workdate').value
       };
     }
   });
@@ -768,7 +801,8 @@ async function editReqAmount(reqId) {
       newAmount: formValues.amount,
       newType:   formValues.type,
       newSite:   formValues.site,
-      newNote:   formValues.note
+      newNote:   formValues.note,
+      newWorkDate: formValues.workDate
     });
     if (res.success) {
       Swal.fire({ icon: 'success', title: 'สำเร็จ', text: 'แก้ไขรายการเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
