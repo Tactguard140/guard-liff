@@ -582,6 +582,13 @@ async function submitRequests(){
     }
     tempIds.push(id);
 
+    // 🌟 บังคับลง "วันที่ลงงาน" ถ้าเป็น รับสดควงเวร หรือ รับสดรายวัน
+    if ((typ === 'รับสดควงเวร' || typ === 'รับสดรายวัน') && !wd) {
+      card.style.borderColor = '#ef4444';
+      hasErr = true;
+      return;
+    }
+
     card.style.borderColor = '';
     // ถ้าเลือกหน่วยงานที่ลงไว้ → ใช้ค่านั้น, ถ้าไม่ → ใช้หน่วยงานประจำ (defaultSite ที่ dropdown ถูก set ไว้แล้ว)
     rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd });
@@ -780,13 +787,23 @@ async function editReqAmount(reqId) {
         Swal.showValidationMessage('กรุณาระบุยอดเงินที่ถูกต้อง');
         return false;
       }
+      
+      const type = document.getElementById('swal-type').value;
+      const workDate = document.getElementById('swal-workdate').value;
+
+      // 🌟 บังคับลง "วันที่ลงงาน" ถ้าเป็น รับสดควงเวร หรือ รับสดรายวัน
+      if ((type === 'รับสดควงเวร' || type === 'รับสดรายวัน') && !workDate) {
+        Swal.showValidationMessage('ประเภท "รับสด" ต้องระบุวันที่ลงงาน');
+        return false;
+      }
+
       const selSite = document.getElementById('swal-site').value;
       return {
         amount: amount,
-        type:   document.getElementById('swal-type').value,
+        type:   type,
         site:   selSite || curSite,   // ถ้าไม่เลือกใหม่ ใช้ค่าเดิม
         note:   document.getElementById('swal-note').value.trim(),
-        workDate: document.getElementById('swal-workdate').value
+        workDate: workDate
       };
     }
   });
