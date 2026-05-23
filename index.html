@@ -6,8 +6,11 @@
   <title>ส่งยอดเบิก รปภ.</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
   <style>
     :root{--green:#06C755;--navy:#101B4D}
     body{background:#f0f2f5;font-family:'Sarabun',sans-serif;padding-bottom:80px}
@@ -43,6 +46,10 @@
     .site-emp-item:last-child { border-bottom:none; }
     .btn-quick-add { background:#ebf5ff; color:#3b82f6; border:1px solid #bfdbfe; border-radius:6px; padding:4px 12px; font-size:.78rem; font-weight:600; cursor:pointer; transition:0.2s; }
     .btn-quick-add:hover { background:#dbeafe; }
+    /* flatpickr Thai date picker */
+    input[type="date"].flatpickr-input { display:none !important; }
+    .flatpickr-alt-input { background:#fff !important; cursor:pointer; }
+    .flatpickr-calendar { font-family:'Sarabun',sans-serif; font-size:.875rem; }
   </style>
 </head>
 <body>
@@ -172,11 +179,61 @@ let currentUser = null;
 let lineUserId  = null;
 let empRowCount = 0;
 
+// แปลง YYYY-MM-DD → DD/MM/YYYY (พ.ศ.)
 function fmtDate(s) {
   if (!s) return '-';
   const p = s.split('-');
   if (p.length !== 3) return s;
-  return p[2] + '-' + p[1] + '-' + p[0];
+  const yyyy = parseInt(p[0]);
+  const thYear = yyyy < 2500 ? yyyy + 543 : yyyy;
+  return p[2] + '/' + p[1] + '/' + thYear;
+}
+
+// แปลง Date object → DD/MM/YYYY (พ.ศ.) สำหรับ flatpickr display
+function toThaiDisplay(date) {
+  if (!date) return '';
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear() + 543;
+  return d + '/' + m + '/' + y;
+}
+
+// config มาตรฐาน flatpickr (แสดง พ.ศ. บน altInput, เก็บ YYYY-MM-DD บน hidden input)
+var _thaiPickerDefaults = {
+  dateFormat: 'Y-m-d',
+  altInput: true,
+  altFormat: 'd/m/Y',
+  locale: 'th',
+  allowInput: true,
+  onChange: function(selectedDates, dateStr, instance) {
+    if (selectedDates.length > 0) instance.altInput.value = toThaiDisplay(selectedDates[0]);
+  },
+  onReady: function(selectedDates, dateStr, instance) {
+    var origClass = instance.element.className || '';
+    var isHidden = origClass.includes('d-none');
+    instance.altInput.className = origClass.replace(/\bd-none\b/g, '').trim() + ' flatpickr-alt-input';
+    if (isHidden) instance.altInput.classList.add('d-none');
+    if (selectedDates.length > 0) instance.altInput.value = toThaiDisplay(selectedDates[0]);
+  }
+};
+
+// init flatpickr บน element (ถ้ายังไม่ได้ init)
+function initThaiPicker(el, extraOpts) {
+  if (!el || el._flatpickr) return;
+  flatpickr(el, Object.assign({}, _thaiPickerDefaults, extraOpts || {}));
+}
+
+// set ค่าวันที่ (ISO YYYY-MM-DD) พร้อมอัปเดต flatpickr display
+function setDateThai(el, isoStr) {
+  if (!el) return;
+  var target = (typeof el === 'string') ? document.querySelector(el) : el;
+  if (!target) return;
+  if (target._flatpickr) {
+    target._flatpickr.setDate(isoStr || '', false);
+    target._flatpickr.altInput.value = isoStr ? toThaiDisplay(new Date(isoStr + 'T00:00:00')) : '';
+  } else {
+    target.value = isoStr || '';
+  }
 }
 
 function setMsg(main, sub) {
@@ -413,15 +470,23 @@ function addEmpRow(){
 
   document.getElementById('empList').appendChild(div);
 
+  // Init Thai date picker บน emp-work-date ที่เพิ่งสร้าง
+  var workDateEl = div.querySelector('.emp-work-date');
+  initThaiPicker(workDateEl);
+
   // --- เพิ่ม Event Listener สำหรับเปลี่ยนประเภทเงินเบิก (LIFF) ---
   const typeSel = div.querySelector('.emp-type');
   const workWrap = div.querySelector('.work-date-wrap');
   typeSel.addEventListener('change', function() {
     if (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน') {
       workWrap.classList.remove('d-none');
+      // แสดง flatpickr altInput ด้วย
+      if (workDateEl._flatpickr) workDateEl._flatpickr.altInput.classList.remove('d-none');
     } else {
       workWrap.classList.add('d-none');
-      div.querySelector('.emp-work-date').value = '';
+      // ซ่อน flatpickr altInput ด้วย
+      if (workDateEl._flatpickr) workDateEl._flatpickr.altInput.classList.add('d-none');
+      setDateThai(workDateEl, '');
     }
   });
 
@@ -781,6 +846,20 @@ async function editReqAmount(reqId) {
     cancelButtonText: 'ยกเลิก',
     confirmButtonColor: '#06C755',
     focusConfirm: false,
+    didOpen: () => {
+      // Init Thai date picker บน swal-workdate หลัง popup เปิด
+      var swEl = document.getElementById('swal-workdate');
+      if (swEl && !swEl._flatpickr) {
+        var fp = flatpickr(swEl, Object.assign({}, _thaiPickerDefaults));
+        if (swEl.value) {
+          fp.setDate(swEl.value, false);
+          fp.altInput.value = toThaiDisplay(new Date(swEl.value + 'T00:00:00'));
+        }
+        // ให้ altInput เต็มความกว้างเหมือน swal2-input
+        fp.altInput.className = 'swal2-input flatpickr-alt-input';
+        fp.altInput.style.cssText = 'margin:0; width:100%; box-sizing:border-box;';
+      }
+    },
     preConfirm: () => {
       const amount = parseFloat(document.getElementById('swal-amount').value);
       if (!amount || amount <= 0) {
