@@ -204,7 +204,7 @@ var _thaiPickerDefaults = {
   altInput: true,
   altFormat: 'd/m/Y',
   locale: 'th',
-  allowInput: true,
+  allowInput: false,
   onChange: function(selectedDates, dateStr, instance) {
     if (selectedDates.length > 0) instance.altInput.value = toThaiDisplay(selectedDates[0]);
   },
