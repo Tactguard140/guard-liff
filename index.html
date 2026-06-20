@@ -470,28 +470,20 @@ function addEmpRow(){
 
   document.getElementById('empList').appendChild(div);
 
-  // emp-work-date: จะ init flatpickr "ตอนที่ช่องถูกแสดง" เท่านั้น
-  // (ถ้า init ตอนที่ wrap ยังเป็น d-none / display:none อยู่ ปฏิทินจะคำนวณตำแหน่งผิด
-  //  ทำให้ช่องไม่ขึ้น/กดแล้วไม่เด้งให้เลือก)
+  // emp-work-date: ใช้ <input type="date"> ของเบราว์เซอร์ตรง ๆ (ไม่ผ่าน flatpickr)
+  // เพราะปฏิทิน flatpickr มักไม่แสดง/ไม่เด้งให้เลือกในเว็บวิวของแอป LINE (LIFF)
+  // ค่าที่ได้ยังเป็น YYYY-MM-DD เหมือนเดิม ส่งให้ backend ได้ปกติ
   var workDateEl = div.querySelector('.emp-work-date');
 
-  // --- เพิ่ม Event Listener สำหรับเปลี่ยนประเภทเงินเบิก (LIFF) ---
+  // --- เปลี่ยนประเภทการเบิก → โชว์/ซ่อนช่องวันที่ลงงาน ---
   const typeSel = div.querySelector('.emp-type');
   const workWrap = div.querySelector('.work-date-wrap');
   typeSel.addEventListener('change', function() {
     if (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน') {
       workWrap.classList.remove('d-none');
-      // init flatpickr หลังจากช่องถูกแสดงแล้ว (lazy init กันปัญหาช่อง/ปฏิทินไม่ขึ้น)
-      if (!workDateEl._flatpickr) initThaiPicker(workDateEl);
-      if (workDateEl._flatpickr) {
-        workDateEl._flatpickr.altInput.classList.remove('d-none');
-        workDateEl._flatpickr.redraw(); // คำนวณตำแหน่งใหม่หลังช่องแสดงผล
-      }
     } else {
       workWrap.classList.add('d-none');
-      // ซ่อน flatpickr altInput ด้วย
-      if (workDateEl._flatpickr) workDateEl._flatpickr.altInput.classList.add('d-none');
-      setDateThai(workDateEl, '');
+      workDateEl.value = '';
     }
   });
 
@@ -852,18 +844,8 @@ async function editReqAmount(reqId) {
     confirmButtonColor: '#06C755',
     focusConfirm: false,
     didOpen: () => {
-      // Init Thai date picker บน swal-workdate หลัง popup เปิด
-      var swEl = document.getElementById('swal-workdate');
-      if (swEl && !swEl._flatpickr) {
-        var fp = flatpickr(swEl, Object.assign({}, _thaiPickerDefaults));
-        if (swEl.value) {
-          fp.setDate(swEl.value, false);
-          fp.altInput.value = toThaiDisplay(new Date(swEl.value + 'T00:00:00'));
-        }
-        // ให้ altInput เต็มความกว้างเหมือน swal2-input
-        fp.altInput.className = 'swal2-input flatpickr-alt-input';
-        fp.altInput.style.cssText = 'margin:0; width:100%; box-sizing:border-box;';
-      }
+      // ใช้ <input type="date"> ปกติ (ไม่ผ่าน flatpickr) เพื่อให้ปฏิทินเด้งแน่นอนในเว็บวิว LINE
+      // ค่า value ถูก set ไว้ตั้งแต่ตอนสร้าง html แล้ว (YYYY-MM-DD)
     },
     preConfirm: () => {
       const amount = parseFloat(document.getElementById('swal-amount').value);
