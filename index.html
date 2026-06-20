@@ -470,9 +470,10 @@ function addEmpRow(){
 
   document.getElementById('empList').appendChild(div);
 
-  // Init Thai date picker บน emp-work-date ที่เพิ่งสร้าง
+  // emp-work-date: จะ init flatpickr "ตอนที่ช่องถูกแสดง" เท่านั้น
+  // (ถ้า init ตอนที่ wrap ยังเป็น d-none / display:none อยู่ ปฏิทินจะคำนวณตำแหน่งผิด
+  //  ทำให้ช่องไม่ขึ้น/กดแล้วไม่เด้งให้เลือก)
   var workDateEl = div.querySelector('.emp-work-date');
-  initThaiPicker(workDateEl);
 
   // --- เพิ่ม Event Listener สำหรับเปลี่ยนประเภทเงินเบิก (LIFF) ---
   const typeSel = div.querySelector('.emp-type');
@@ -480,8 +481,12 @@ function addEmpRow(){
   typeSel.addEventListener('change', function() {
     if (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน') {
       workWrap.classList.remove('d-none');
-      // แสดง flatpickr altInput ด้วย
-      if (workDateEl._flatpickr) workDateEl._flatpickr.altInput.classList.remove('d-none');
+      // init flatpickr หลังจากช่องถูกแสดงแล้ว (lazy init กันปัญหาช่อง/ปฏิทินไม่ขึ้น)
+      if (!workDateEl._flatpickr) initThaiPicker(workDateEl);
+      if (workDateEl._flatpickr) {
+        workDateEl._flatpickr.altInput.classList.remove('d-none');
+        workDateEl._flatpickr.redraw(); // คำนวณตำแหน่งใหม่หลังช่องแสดงผล
+      }
     } else {
       workWrap.classList.add('d-none');
       // ซ่อน flatpickr altInput ด้วย
