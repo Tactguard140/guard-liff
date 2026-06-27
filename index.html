@@ -671,13 +671,8 @@ function toggleSiteEmpList() {
 }
   
 function quickAddEmp(id, name) {
-  const existingInputs = document.querySelectorAll('.emp-id');
-  for (let input of existingInputs) {
-    if (input.value === id) {
-      Swal.fire({ title: 'มีรายชื่อนี้แล้ว!', icon: 'warning', toast: true, position: 'top', showConfirmButton: false, timer: 2000 });
-      return;
-    }
-  }
+  // อนุญาตให้เพิ่มคนเดิมได้หลายรายการ (เช่น คนละผลัด/ประเภท/วันลงงาน)
+  // ระบบจะไปเช็คซ้ำตอนกดส่ง ด้วยคีย์ รหัส+ผลัด+ประเภท+วันที่ลงงาน
   let emptyRowFound = false;
   document.querySelectorAll('.emp-card').forEach(card => {
     const idInput = card.querySelector('.emp-id');
