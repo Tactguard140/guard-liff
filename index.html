@@ -112,7 +112,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')"><i class="fas fa-paper-plane me-1"></i> ส่งรายการ</button>
     <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();"><i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว</button>
-    <button class="tab-btn" id="btn-tab-ext" onclick="switchTab('ext');loadExtGuards();"><i class="fas fa-user-plus me-1"></i> รปภ. นอก</button>
+    <button class="tab-btn" id="btn-tab-ext" onclick="switchTab('ext');loadExtGuards();"><i class="fas fa-user-plus me-1"></i> รปภ.สแปร์-นอก</button>
   </div>
 
   <div id="tab-send" class="tab-pane active">
@@ -206,7 +206,7 @@
 
   <div id="tab-ext" class="tab-pane">
     <div class="section-card">
-      <div class="card-head"><i class="fas fa-user-plus" style="color:var(--green)"></i> เพิ่มรายชื่อ รปภ. นอก</div>
+      <div class="card-head"><i class="fas fa-user-plus" style="color:var(--green)"></i> เพิ่มรายชื่อ รปภ.สแปร์-นอก</div>
       <div class="form-wrap">
         <div class="mb-2">
           <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
@@ -1060,7 +1060,7 @@ function setActiveEmpSites(sites){
   });
 }
 
-// ── รปภ. นอก: บันทึก + แสดงรายชื่อ ──
+// ── รปภ.สแปร์-นอก: บันทึก + แสดงรายชื่อ ──
 async function saveExtGuard(){
   const name  = (document.getElementById('ext-name').value  || '').trim();
   const phone = (document.getElementById('ext-phone').value || '').trim();
@@ -1097,7 +1097,7 @@ async function saveExtGuard(){
   }
 }
 
-// ดึง รปภ. นอก เข้าฟอร์มเบิก (สลับไปแท็บส่งรายการ)
+// ดึง รปภ.สแปร์-นอก เข้าฟอร์มเบิก (สลับไปแท็บส่งรายการ)
 function addExtToReq(code, name){
   switchTab('send');
   document.getElementById('btn-tab-send').classList.add('active');
@@ -1107,7 +1107,7 @@ function addExtToReq(code, name){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-window._extGuards = [];   // cache รายชื่อ รปภ. นอก
+window._extGuards = [];   // cache รายชื่อ รปภ.สแปร์-นอก
 
 async function loadExtGuards(){
   const listEl = document.getElementById('ext-list');
@@ -1184,7 +1184,7 @@ function renderExtList(){
   listEl.innerHTML = html;
 }
 
-// แก้ไขข้อมูล รปภ. นอก
+// แก้ไขข้อมูล รปภ.สแปร์-นอก
 async function editExtGuard(code){
   const g = (window._extGuards || []).find(x => x.id === code);
   if (!g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
@@ -1236,7 +1236,7 @@ async function editExtGuard(code){
   }
 }
 
-// ดึง รปภ. นอก เป็น รปภ. ประจำ
+// ดึง รปภ.สแปร์-นอก เป็น รปภ. ประจำ
 async function promoteExtGuard(code){
   const g = (window._extGuards || []).find(x => x.id === code);
   if (!g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
