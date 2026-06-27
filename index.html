@@ -1161,17 +1161,19 @@ function renderExtList(){
           <div class="row g-1" style="font-size:.85rem;">
             <div class="col-12 d-flex justify-content-between align-items-center">
               <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${g.name}</b>
-              <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${g.id}</span>
+              ${promoteBtn}
             </div>
-            <div class="col-12"><span class="text-muted">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a></div>
+            <div class="col-12">
+              <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${g.id}</span>
+              <span class="text-muted ms-2">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a>
+            </div>
             ${bankLine}
             ${noteLine}
             <div class="col-12 mt-2 pt-2 border-top">
               <div class="text-muted mb-2" style="font-size:.72rem;">${g.timestamp}${ g.addedBy ? ' · เพิ่มโดย ' + g.addedBy : '' }</div>
-              <div class="d-flex gap-2 flex-wrap">
+              <div class="d-flex align-items-center">
                 <button class="btn btn-sm btn-outline-secondary" type="button" onclick="editExtGuard('${g.id}')" style="font-size:.78rem;"><i class="fas fa-edit me-1"></i> แก้ไข</button>
-                <button class="btn-quick-add" type="button" onclick="addExtToReq('${g.id}', '${safeName}')"><i class="fas fa-plus me-1"></i> เบิก</button>
-                ${promoteBtn}
+                <button class="btn-quick-add ms-auto" type="button" onclick="addExtToReq('${g.id}', '${safeName}')"><i class="fas fa-plus me-1"></i> เบิก</button>
               </div>
             </div>
           </div>
