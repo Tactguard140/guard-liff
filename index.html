@@ -103,6 +103,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')"><i class="fas fa-paper-plane me-1"></i> ส่งรายการ</button>
     <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();"><i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว</button>
+    <button class="tab-btn" id="btn-tab-ext" onclick="switchTab('ext');loadExtGuards();"><i class="fas fa-user-plus me-1"></i> รปภ. นอก</button>
   </div>
 
   <div id="tab-send" class="tab-pane active">
@@ -174,6 +175,49 @@
         <div class="text-center text-muted py-5">
           <i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>กด "รีเฟรช" เพื่อโหลด
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-ext" class="tab-pane">
+    <div class="section-card">
+      <div class="card-head"><i class="fas fa-user-plus" style="color:var(--green)"></i> เพิ่มรายชื่อ รปภ. นอก</div>
+      <div class="form-wrap">
+        <div class="mb-2">
+          <label class="form-label">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+          <input type="text" id="ext-name" class="form-control" placeholder="ชื่อ-นามสกุล">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">เบอร์โทรศัพท์ <span class="text-danger">*</span></label>
+          <input type="tel" id="ext-phone" class="form-control" placeholder="เช่น 0812345678" inputmode="numeric">
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">ธนาคาร</label>
+            <input type="text" id="ext-bankname" class="form-control" placeholder="(ถ้ามี)">
+          </div>
+          <div class="col-6">
+            <label class="form-label">เลขบัญชี</label>
+            <input type="text" id="ext-bankacc" class="form-control" placeholder="(ถ้ามี)" inputmode="numeric">
+          </div>
+        </div>
+        <div class="mt-2">
+          <label class="form-label">โน้ต / หมายเหตุ</label>
+          <input type="text" id="ext-note" class="form-control" placeholder="(ถ้ามี)">
+        </div>
+        <button class="btn btn-success w-100 mt-3" id="ext-save-btn" onclick="saveExtGuard()" style="font-weight:700;">
+          <i class="fas fa-save me-2"></i>บันทึกรายชื่อ
+        </button>
+      </div>
+    </div>
+
+    <div style="padding:0 10px 10px;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <b style="color:var(--navy);">รายชื่อที่เพิ่มแล้ว</b>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadExtGuards()"><i class="fas fa-rotate me-1"></i> รีเฟรช</button>
+      </div>
+      <div id="ext-list">
+        <div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
       </div>
     </div>
   </div>
@@ -1004,6 +1048,80 @@ async function ensureAllSitesLoaded(){
 async function loadAllSitesToOptions(){
   // delegate ไปที่ ensureAllSitesLoaded เพื่อไม่ให้ call API ซ้ำ
   await ensureAllSitesLoaded();
+}
+
+// ── รปภ. นอก: บันทึก + แสดงรายชื่อ ──
+async function saveExtGuard(){
+  const name  = (document.getElementById('ext-name').value  || '').trim();
+  const phone = (document.getElementById('ext-phone').value || '').trim();
+
+  // บังคับกรอกชื่อ + เบอร์โทร
+  if (!name)  { Swal.fire('กรอกข้อมูลไม่ครบ', 'กรุณากรอกชื่อ-นามสกุล', 'warning'); return; }
+  if (!phone) { Swal.fire('กรอกข้อมูลไม่ครบ', 'กรุณากรอกเบอร์โทรศัพท์', 'warning'); return; }
+
+  const btn = document.getElementById('ext-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังบันทึก...';
+  try {
+    const r = await callBackend('addExternalGuard', {
+      name:     name,
+      phone:    phone,
+      bankName: (document.getElementById('ext-bankname').value || '').trim(),
+      bankAcc:  (document.getElementById('ext-bankacc').value  || '').trim(),
+      note:     (document.getElementById('ext-note').value     || '').trim(),
+      addedBy:  (currentUser && currentUser.name) ? currentUser.name : (currentUsername || '')
+    });
+    if (r && r.success) {
+      Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1300, showConfirmButton: false });
+      ['ext-name','ext-phone','ext-bankname','ext-bankacc','ext-note'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('ext-name').focus();
+      loadExtGuards();
+    } else {
+      Swal.fire('บันทึกไม่สำเร็จ', (r && r.message) ? r.message : 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึกรายชื่อ';
+  }
+}
+
+async function loadExtGuards(){
+  const listEl = document.getElementById('ext-list');
+  listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>';
+  try {
+    const rows = await callBackend('getExternalGuards');
+    if (!rows || !rows.length) {
+      listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายชื่อ</div>';
+      return;
+    }
+    let html = '';
+    rows.forEach(g => {
+      const bankLine = (g.bankName || g.bankAcc)
+        ? `<div class="col-12"><span class="text-muted">บัญชี:</span> ${g.bankName || '-'} ${g.bankAcc || ''}</div>` : '';
+      const noteLine = g.note
+        ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${g.note}</span></div>` : '';
+      html += `
+        <div class="section-card mb-2">
+          <div class="form-wrap">
+            <div class="row g-1" style="font-size:.85rem;">
+              <div class="col-12 d-flex justify-content-between align-items-center">
+                <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${g.name}</b>
+                <span class="text-muted" style="font-size:.72rem;">${g.timestamp}</span>
+              </div>
+              <div class="col-12"><span class="text-muted">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a></div>
+              ${bankLine}
+              ${noteLine}
+              ${ g.addedBy ? `<div class="col-12" style="font-size:.72rem;color:#9ca3af;">เพิ่มโดย: ${g.addedBy}</div>` : '' }
+            </div>
+          </div>
+        </div>`;
+    });
+    listEl.innerHTML = html;
+  } catch(e) {
+    listEl.innerHTML = '<div class="text-center text-danger py-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+  }
 }
 </script>
 </body>
