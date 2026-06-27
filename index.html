@@ -711,7 +711,7 @@ async function submitRequests(){
   const siteName = siteId ? siteEl.options[siteEl.selectedIndex].text : '';
 
   let rows = [], hasErr = false;
-  let tempIds = []; // 🌟 เก็บ ID ไว้เช็คซ้ำบนหน้าเว็บ
+  let tempKeys = []; // 🌟 คีย์เช็คซ้ำ = รหัส + ผลัด + ประเภท + วันที่ลงงาน
   let duplicateInForm = false;
 
   document.querySelectorAll('.emp-card').forEach(card => {
@@ -730,12 +730,13 @@ async function submitRequests(){
       card.style.borderColor = '#ef4444'; hasErr = true; return;
     }
 
-    // 🌟 เช็คว่ากรอกรหัสพนักงานซ้ำในหน้าเดียวกันหรือไม่
-    if (tempIds.includes(id)) {
+    // 🌟 ซ้ำในหน้าเดียวกันก็ต่อเมื่อ รหัส + ผลัด + ประเภท + วันที่ลงงาน เหมือนกันทั้งหมด
+    const dupKey = (id || '').trim().toUpperCase() + '|' + sh + '|' + typ + '|' + (wd || '');
+    if (tempKeys.includes(dupKey)) {
       duplicateInForm = true;
       card.style.borderColor = '#ef4444';
     }
-    tempIds.push(id);
+    tempKeys.push(dupKey);
 
     // 🌟 บังคับลง "วันที่ลงงาน" ถ้าเป็น รับสดควงเวร หรือ รับสดรายวัน
     if ((typ === 'รับสดควงเวร' || typ === 'รับสดรายวัน') && !wd) {
@@ -751,7 +752,7 @@ async function submitRequests(){
 
   // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
   if (duplicateInForm) {
-    Swal.fire('ข้อมูลซ้ำซ้อน', 'คุณกรอกรหัสพนักงานซ้ำกันมากกว่า 1 รายการ กรุณาลบกล่องที่ซ้ำออก', 'error');
+    Swal.fire('ข้อมูลซ้ำซ้อน', 'มีรายการที่ รหัส + ผลัด + ประเภทการเบิก + วันที่ลงงาน เหมือนกันทุกช่อง กรุณาแก้ให้ต่างกันอย่างน้อย 1 ช่อง หรือลบกล่องที่ซ้ำ', 'error');
     setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => c.style.borderColor = ''), 3000);
     return;
   }
