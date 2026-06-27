@@ -37,6 +37,15 @@
     .emp-body{padding:10px 12px}
     .btn-remove-emp{border:none;background:transparent;color:#ef4444;font-size:.8rem;cursor:pointer;padding:2px 6px;border-radius:4px}
     .btn-add-emp{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 10px;padding:9px;border:2px dashed #3b82f6;border-radius:10px;color:#3b82f6;background:transparent;font-weight:600;font-size:.88rem;width:calc(100% - 20px);cursor:pointer}
+    /* ตารางรายการพนักงาน (เลื่อนซ้าย-ขวา 1 แถว/รายการ) */
+    .emp-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid #f3f4f6}
+    .emp-grid-inner{display:inline-block;min-width:100%}
+    .emp-grid{display:grid;grid-template-columns:36px 116px 170px 116px 110px 154px 150px 188px 170px 46px;gap:8px;align-items:center}
+    .emp-grid-head{padding:8px 12px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;font-size:.76rem;font-weight:700;color:var(--navy);white-space:nowrap}
+    .emp-row{padding:10px 12px;border-bottom:1px solid #f3f4f6;border-left:3px solid transparent}
+    .emp-row .form-control,.emp-row .form-select{font-size:.85rem;padding:.32rem .5rem;height:auto}
+    .emp-row .emp-no{font-weight:700;color:var(--navy);font-size:.85rem;text-align:center}
+    .emp-row .btn-remove-emp{border:none;background:transparent;color:#ef4444;font-size:1rem;cursor:pointer;padding:4px;border-radius:4px}
     .btn-submit{position:fixed;bottom:0;left:0;right:0;border-radius:0;padding:15px;font-size:.95rem;font-weight:700;background:linear-gradient(135deg,var(--green),#00b900);border:none;color:#fff;box-shadow:0 -2px 10px rgba(0,0,0,.15);z-index:99}
     .badge-pending{background:#fef3c7;color:#92400e}
     .badge-transferred{background:#d1fae5;color:#065f46}
@@ -152,8 +161,24 @@
     </div>
 
     <div class="section-card" style="padding-bottom:4px;">
-      <div class="card-head"><i class="fas fa-users" style="color:#3b82f6"></i> รายการพนักงาน</div>
-      <div id="empList" class="pt-1"></div>
+      <div class="card-head"><i class="fas fa-users" style="color:#3b82f6"></i> รายการพนักงาน <span style="font-weight:400;color:#9ca3af;font-size:.75rem;margin-left:auto;"><i class="fas fa-arrows-left-right me-1"></i>เลื่อนซ้าย-ขวา</span></div>
+      <div class="emp-scroll">
+        <div class="emp-grid-inner">
+          <div class="emp-grid emp-grid-head">
+            <div>#</div>
+            <div>รหัสพนักงาน</div>
+            <div>ชื่อ-นามสกุล</div>
+            <div>ผลัด</div>
+            <div>จำนวนเงิน</div>
+            <div>ประเภทการเบิก</div>
+            <div>วันที่ลงงาน</div>
+            <div>หน่วยงานที่ลง</div>
+            <div>โน้ต</div>
+            <div>ลบ</div>
+          </div>
+          <div id="empList"></div>
+        </div>
+      </div>
       <button class="btn-add-emp" onclick="addEmpRow()"><i class="fas fa-plus-circle"></i> เพิ่มพนักงาน</button>
     </div>
 
@@ -215,6 +240,10 @@
       <div class="d-flex justify-content-between align-items-center mb-2">
         <b style="color:var(--navy);">รายชื่อที่เพิ่มแล้ว</b>
         <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadExtGuards()"><i class="fas fa-rotate me-1"></i> รีเฟรช</button>
+      </div>
+      <div class="mb-2" style="position:relative;">
+        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.85rem;"></i>
+        <input type="text" id="ext-search" class="form-control" placeholder="ค้นหา ชื่อ / เบอร์ / รหัส..." oninput="renderExtList()" style="padding-left:34px;">
       </div>
       <div id="ext-list">
         <div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
@@ -489,102 +518,60 @@ function switchTab(tab){
   document.getElementById('btn-submit-main').style.display = tab === 'send' ? 'block' : 'none';
 }
 
-// ── Emp rows (ฟอร์มส่งรายการ) ──
+// ── Emp rows (ฟอร์มส่งรายการ) — 1 แถวต่อ 1 รายการ เลื่อนซ้าย-ขวาได้ ──
 function addEmpRow(){
   empRowCount++;
-  const rid = 'emp_' + Date.now();
-  const div = document.createElement('div');
-  div.className = 'emp-card';
-  div.id = rid;
+  const rid = 'emp_' + Date.now() + '_' + empRowCount;
+  const row = document.createElement('div');
+  row.className = 'emp-card emp-grid emp-row';   // คง class emp-card ไว้ให้ logic เดิมทำงานต่อ
+  row.id = rid;
 
   // ✅ ใช้รายการหน่วยงานทั้งหมดที่โหลดเก็บไว้ล่วงหน้าใน window.siteOptionsHtml
-  // ถ้ายังไม่มี ให้โชว์ข้อความแทน
   const siteOptions = (window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '')
     ? window.siteOptionsHtml
     : '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>';
 
-  div.innerHTML = `
-    <div class="emp-head">
-      <span><i class="fas fa-user me-1" style="color:#3b82f6"></i> พนักงานคนที่ ${empRowCount}</span>
-      <button class="btn-remove-emp" onclick="document.getElementById('${rid}').remove();updateSummary()">
-        <i class="fas fa-times"></i> ลบ
-      </button>
+  row.innerHTML = `
+    <div class="emp-no">${empRowCount}</div>
+    <div><input type="text" inputmode="text" class="form-control emp-id" placeholder="1001 / N0001" onchange="findEmpName(this)"></div>
+    <div><input type="text" class="form-control emp-name" readonly placeholder="ค้นหาอัตโนมัติ"></div>
+    <div>
+      <select class="form-select emp-shift">
+        <option value="D">กลางวัน (D)</option>
+        <option value="N">กลางคืน (N)</option>
+      </select>
     </div>
-
-    <div class="emp-body">
-      <div class="row g-2">
-        <div class="col-5">
-          <label class="form-label">รหัสพนักงาน</label>
-          <input type="text" inputmode="text" class="form-control emp-id" placeholder="เช่น 1001 หรือ N0001" onchange="findEmpName(this)">
-        </div>
-
-        <div class="col-7">
-          <label class="form-label">ชื่อ-นามสกุล</label>
-          <input type="text" class="form-control emp-name" readonly placeholder="ค้นหาอัตโนมัติ">
-        </div>
-
-        <div class="col-6">
-          <label class="form-label">ผลัด</label>
-          <select class="form-select emp-shift">
-            <option value="D">กลางวัน (D)</option>
-            <option value="N">กลางคืน (N)</option>
-          </select>
-        </div>
-
-        <div class="col-6">
-          <label class="form-label">จำนวนเงิน</label>
-          <input type="number" class="form-control text-end emp-amount" placeholder="0" oninput="updateSummary()">
-        </div>
-
-        <div class="col-12 mt-2">
-          <label class="form-label">ประเภทการเบิก</label>
-          <select class="form-select emp-type" style="font-size:.85rem;">
-            <option value="เบิกล่วงหน้า" selected>เบิกล่วงหน้า</option>
-            <option value="เบิกรายวันคนใหม่">เบิกรายวันคนใหม่</option>
-            <option value="รับสดควงเวร">รับสดควงเวร</option>
-            <option value="รับสดรายวัน">รับสดรายวัน</option>
-          </select>
-        </div>
-
-        <div class="col-12 mt-2 work-date-wrap d-none">
-          <label class="form-label">วันที่ลงงาน</label>
-          <input type="date" class="form-control emp-work-date">
-        </div>
-
-        <div class="col-12 mt-2">
-          <label class="form-label">หน่วยงานที่ลง</label>
-          <select class="form-select emp-site" style="font-size:.85rem;">
-            <option value="" disabled selected>-- เลือกหน่วยงาน --</option>
-            ${siteOptions}
-          </select>
-        </div>
-
-        <div class="col-12 mt-2">
-          <label class="form-label">โน้ต <small class="text-muted">(ถ้ามี)</small></label>
-          <input type="text" class="form-control emp-note" placeholder="หมายเหตุเพิ่มเติม...">
-        </div>
-
-      </div>
+    <div><input type="number" class="form-control text-end emp-amount" placeholder="0" oninput="updateSummary()"></div>
+    <div>
+      <select class="form-select emp-type">
+        <option value="เบิกล่วงหน้า" selected>เบิกล่วงหน้า</option>
+        <option value="เบิกรายวันคนใหม่">เบิกรายวันคนใหม่</option>
+        <option value="รับสดควงเวร">รับสดควงเวร</option>
+        <option value="รับสดรายวัน">รับสดรายวัน</option>
+      </select>
+    </div>
+    <div><input type="date" class="form-control emp-work-date" title="บังคับกรอกเมื่อเลือกประเภทรับสด"></div>
+    <div>
+      <select class="form-select emp-site">
+        <option value="" disabled selected>-- เลือกหน่วยงาน --</option>
+        ${siteOptions}
+      </select>
+    </div>
+    <div><input type="text" class="form-control emp-note" placeholder="หมายเหตุ..."></div>
+    <div style="text-align:center;">
+      <button class="btn-remove-emp" title="ลบ" onclick="document.getElementById('${rid}').remove();updateSummary()"><i class="fas fa-times-circle"></i></button>
     </div>
   `;
 
-  document.getElementById('empList').appendChild(div);
+  document.getElementById('empList').appendChild(row);
 
-  // emp-work-date: ใช้ <input type="date"> ของเบราว์เซอร์ตรง ๆ (ไม่ผ่าน flatpickr)
-  // เพราะปฏิทิน flatpickr มักไม่แสดง/ไม่เด้งให้เลือกในเว็บวิวของแอป LINE (LIFF)
-  // ค่าที่ได้ยังเป็น YYYY-MM-DD เหมือนเดิม ส่งให้ backend ได้ปกติ
-  var workDateEl = div.querySelector('.emp-work-date');
-
-  // --- เปลี่ยนประเภทการเบิก → โชว์/ซ่อนช่องวันที่ลงงาน ---
-  const typeSel = div.querySelector('.emp-type');
-  const workWrap = div.querySelector('.work-date-wrap');
+  // เน้นช่อง "วันที่ลงงาน" เมื่อเลือกประเภท "รับสด" (บังคับกรอกตอนส่ง)
+  const typeSel    = row.querySelector('.emp-type');
+  const workDateEl = row.querySelector('.emp-work-date');
   typeSel.addEventListener('change', function() {
-    if (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน') {
-      workWrap.classList.remove('d-none');
-    } else {
-      workWrap.classList.add('d-none');
-      workDateEl.value = '';
-    }
+    const need = (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน');
+    workDateEl.style.borderColor = need ? '#f59e0b' : '';
+    if (!need) workDateEl.value = '';
   });
 
   updateSummary();
@@ -1097,44 +1084,189 @@ function addExtToReq(code, name){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+window._extGuards = [];   // cache รายชื่อ รปภ. นอก
+
 async function loadExtGuards(){
   const listEl = document.getElementById('ext-list');
   listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>';
   try {
     const rows = await callBackend('getExternalGuards');
-    if (!rows || !rows.length) {
-      listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายชื่อ</div>';
-      return;
-    }
-    let html = '';
-    rows.forEach(g => {
-      const bankLine = (g.bankName || g.bankAcc)
-        ? `<div class="col-12"><span class="text-muted">บัญชี:</span> ${g.bankName || '-'} ${g.bankAcc || ''}</div>` : '';
-      const noteLine = g.note
-        ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${g.note}</span></div>` : '';
-      const safeName = (g.name || '').replace(/'/g, "\\'");
-      html += `
-        <div class="section-card mb-2">
-          <div class="form-wrap">
-            <div class="row g-1" style="font-size:.85rem;">
-              <div class="col-12 d-flex justify-content-between align-items-center">
-                <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${g.name}</b>
-                <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${g.id}</span>
-              </div>
-              <div class="col-12"><span class="text-muted">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a></div>
-              ${bankLine}
-              ${noteLine}
-              <div class="col-12 d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                <span class="text-muted" style="font-size:.72rem;">${g.timestamp}${ g.addedBy ? ' · เพิ่มโดย ' + g.addedBy : '' }</span>
+    window._extGuards = Array.isArray(rows) ? rows : [];
+    renderExtList();
+  } catch(e) {
+    listEl.innerHTML = '<div class="text-center text-danger py-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+  }
+}
+
+// แสดงรายชื่อตามคำค้นหา (ค้นจาก ชื่อ / เบอร์ / รหัส)
+function renderExtList(){
+  const listEl = document.getElementById('ext-list');
+  const all = window._extGuards || [];
+  const q = (document.getElementById('ext-search').value || '').trim().toLowerCase();
+
+  if (!all.length) {
+    listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>ยังไม่มีรายชื่อ</div>';
+    return;
+  }
+
+  const rows = q
+    ? all.filter(g => (
+        (g.name  || '').toLowerCase().includes(q) ||
+        (g.phone || '').toLowerCase().includes(q) ||
+        (g.id    || '').toLowerCase().includes(q)
+      ))
+    : all;
+
+  if (!rows.length) {
+    listEl.innerHTML = '<div class="text-center text-muted py-4">ไม่พบรายชื่อที่ตรงกับ "' + q + '"</div>';
+    return;
+  }
+
+  // สิทธิ์ "ดึงเป็นประจำ" — เฉพาะสายตรวจ/ธุรการ/ผู้ดูแล (ปรับรายการได้ที่นี่)
+  const allowedRoles = ['สายตรวจ', 'ธุรการ', 'ผู้ดูแลระบบ', 'แอดมิน', 'admin', 'Admin'];
+  const canPromote = currentUser && allowedRoles.indexOf((currentUser.role || '').toString().trim()) >= 0;
+
+  let html = '';
+  rows.forEach(g => {
+    const promoteBtn = canPromote
+      ? `<button class="btn btn-sm btn-outline-success" type="button" onclick="promoteExtGuard('${g.id}')" style="font-size:.78rem;"><i class="fas fa-user-check me-1"></i> ดึงเป็นประจำ</button>`
+      : '';
+    const bankLine = (g.bankName || g.bankAcc)
+      ? `<div class="col-12"><span class="text-muted">บัญชี:</span> ${g.bankName || '-'} ${g.bankAcc || ''}</div>` : '';
+    const noteLine = g.note
+      ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${g.note}</span></div>` : '';
+    const safeName = (g.name || '').replace(/'/g, "\\'");
+    html += `
+      <div class="section-card mb-2">
+        <div class="form-wrap">
+          <div class="row g-1" style="font-size:.85rem;">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+              <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${g.name}</b>
+              <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${g.id}</span>
+            </div>
+            <div class="col-12"><span class="text-muted">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a></div>
+            ${bankLine}
+            ${noteLine}
+            <div class="col-12 mt-2 pt-2 border-top">
+              <div class="text-muted mb-2" style="font-size:.72rem;">${g.timestamp}${ g.addedBy ? ' · เพิ่มโดย ' + g.addedBy : '' }</div>
+              <div class="d-flex gap-2 flex-wrap">
+                <button class="btn btn-sm btn-outline-secondary" type="button" onclick="editExtGuard('${g.id}')" style="font-size:.78rem;"><i class="fas fa-edit me-1"></i> แก้ไข</button>
                 <button class="btn-quick-add" type="button" onclick="addExtToReq('${g.id}', '${safeName}')"><i class="fas fa-plus me-1"></i> เบิก</button>
+                ${promoteBtn}
               </div>
             </div>
           </div>
         </div>`;
-    });
-    listEl.innerHTML = html;
+  });
+  listEl.innerHTML = html;
+}
+
+// แก้ไขข้อมูล รปภ. นอก
+async function editExtGuard(code){
+  const g = (window._extGuards || []).find(x => x.id === code);
+  if (!g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
+  const esc = s => (s || '').toString().replace(/"/g, '&quot;');
+
+  const { value: vals, isConfirmed } = await Swal.fire({
+    title: 'แก้ไข ' + g.id,
+    html: `
+      <div style="text-align:left;padding:0 4px;">
+        <label style="font-weight:600;font-size:.85rem;">ชื่อ-นามสกุล *</label>
+        <input id="e-name" class="swal2-input" style="margin:4px 0 10px;width:100%;box-sizing:border-box;" value="${esc(g.name)}">
+        <label style="font-weight:600;font-size:.85rem;">เบอร์โทรศัพท์ *</label>
+        <input id="e-phone" class="swal2-input" style="margin:4px 0 10px;width:100%;box-sizing:border-box;" value="${esc(g.phone)}">
+        <label style="font-weight:600;font-size:.85rem;">ธนาคาร</label>
+        <input id="e-bankname" class="swal2-input" style="margin:4px 0 10px;width:100%;box-sizing:border-box;" value="${esc(g.bankName)}">
+        <label style="font-weight:600;font-size:.85rem;">เลขบัญชี</label>
+        <input id="e-bankacc" class="swal2-input" style="margin:4px 0 10px;width:100%;box-sizing:border-box;" value="${esc(g.bankAcc)}">
+        <label style="font-weight:600;font-size:.85rem;">โน้ต</label>
+        <input id="e-note" class="swal2-input" style="margin:4px 0 4px;width:100%;box-sizing:border-box;" value="${esc(g.note)}">
+      </div>`,
+    showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#06C755',
+    focusConfirm: false,
+    preConfirm: () => {
+      const name  = document.getElementById('e-name').value.trim();
+      const phone = document.getElementById('e-phone').value.trim();
+      if (!name)  { Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล'); return false; }
+      if (!phone) { Swal.showValidationMessage('กรุณากรอกเบอร์โทรศัพท์'); return false; }
+      return {
+        name, phone,
+        bankName: document.getElementById('e-bankname').value.trim(),
+        bankAcc:  document.getElementById('e-bankacc').value.trim(),
+        note:     document.getElementById('e-note').value.trim()
+      };
+    }
+  });
+  if (!isConfirmed || !vals) return;
+
+  Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('editExternalGuard', { code: code, name: vals.name, phone: vals.phone, bankName: vals.bankName, bankAcc: vals.bankAcc, note: vals.note });
+    if (r && r.success) {
+      Swal.fire({ icon: 'success', title: 'แก้ไขสำเร็จ', timer: 1300, showConfirmButton: false });
+      loadExtGuards();
+    } else {
+      Swal.fire('แก้ไขไม่สำเร็จ', (r && r.message) ? r.message : 'เกิดข้อผิดพลาด', 'error');
+    }
   } catch(e) {
-    listEl.innerHTML = '<div class="text-center text-danger py-4">โหลดไม่สำเร็จ: ' + e + '</div>';
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
+  }
+}
+
+// ดึง รปภ. นอก เป็น รปภ. ประจำ
+async function promoteExtGuard(code){
+  const g = (window._extGuards || []).find(x => x.id === code);
+  if (!g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
+
+  // เตรียมข้อมูล: เลขรหัสถัดไป + รายการหน่วยงาน
+  Swal.fire({ title: 'กำลังเตรียมข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  let nextId = '';
+  try {
+    const ni = await callBackend('getNextEmpId');
+    nextId = (ni && ni.nextId) ? ni.nextId : '';
+    await ensureAllSitesLoaded();
+  } catch(e) { /* ใช้ค่าว่างได้ */ }
+  Swal.close();
+
+  const esc = s => (s || '').toString().replace(/"/g, '&quot;');
+  const siteOpts = '<option value="">-- ไม่ระบุ --</option>' +
+    (allSitesCache || []).map(s => `<option value="${s.id}">${s.id} - ${s.name}</option>`).join('');
+
+  const { value: vals, isConfirmed } = await Swal.fire({
+    title: 'ดึงเป็น รปภ. ประจำ',
+    html: `
+      <div style="text-align:left;padding:0 4px;">
+        <div style="font-size:.85rem;color:#6b7280;margin-bottom:10px;"><i class="fas fa-user-shield me-1"></i>${esc(g.name)} · ${esc(g.phone)} <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;">${g.id}</span></div>
+        <label style="font-weight:600;font-size:.85rem;">รหัสพนักงานใหม่ *</label>
+        <input id="pm-id" type="number" class="swal2-input" style="margin:4px 0 10px;width:100%;box-sizing:border-box;" value="${esc(nextId)}">
+        <label style="font-weight:600;font-size:.85rem;">หน่วยงานประจำ</label>
+        <select id="pm-site" class="swal2-select" style="margin:4px 0 10px;width:100%;display:block;box-sizing:border-box;">${siteOpts}</select>
+        <label style="font-weight:600;font-size:.85rem;">ตำแหน่ง</label>
+        <input id="pm-pos" class="swal2-input" style="margin:4px 0 4px;width:100%;box-sizing:border-box;" placeholder="(ถ้ามี)">
+      </div>`,
+    showCancelButton: true, confirmButtonText: 'ดึงเป็นประจำ', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#101B4D',
+    focusConfirm: false,
+    preConfirm: () => {
+      const empId = document.getElementById('pm-id').value.trim();
+      if (!empId) { Swal.showValidationMessage('กรุณาระบุรหัสพนักงานใหม่'); return false; }
+      return { empId: empId, siteId: document.getElementById('pm-site').value, position: document.getElementById('pm-pos').value.trim() };
+    }
+  });
+  if (!isConfirmed || !vals) return;
+
+  Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('promoteExternalGuard', {
+      code: code, empId: vals.empId, siteId: vals.siteId, position: vals.position, username: currentUsername
+    });
+    if (r && r.success) {
+      Swal.fire({ icon: 'success', title: 'ดึงเป็นประจำสำเร็จ', html: 'รหัสพนักงานใหม่: <b style="color:#06C755;font-size:1.2rem;">' + r.empId + '</b>', confirmButtonColor: '#06C755' });
+      loadExtGuards();
+    } else {
+      Swal.fire('ไม่สำเร็จ', (r && r.message) ? r.message : 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
   }
 }
 </script>
