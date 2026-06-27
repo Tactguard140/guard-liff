@@ -1123,7 +1123,7 @@ function renderExtList(){
   }
 
   // สิทธิ์ "ดึงเป็นประจำ" — เฉพาะสายตรวจ/ธุรการ/ผู้ดูแล (ปรับรายการได้ที่นี่)
-  const allowedRoles = ['สายตรวจ', 'ธุรการ', 'ผู้ดูแลระบบ', 'แอดมิน', 'admin', 'Admin'];
+  const allowedRoles = ['ผู้ดูแลระบบ', 'ผู้ดูแลระบบหลัก', 'ธุรการ', 'บัญชี', 'สายตรวจ', 'แอดมิน', 'admin', 'Admin'];
   const canPromote = currentUser && allowedRoles.indexOf((currentUser.role || '').toString().trim()) >= 0;
 
   let html = '';
