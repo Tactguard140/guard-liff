@@ -7,7 +7,6 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/th.js"></script>
@@ -19,7 +18,6 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     #error-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
     .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;font-size:.82rem;color:#991b1b;max-width:400px;word-break:break-all;margin-top:12px;text-align:left}
-    #register-screen{display:none;position:fixed;inset:0;background:#fff;z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:28px;text-align:center}
     .liff-header{background:linear-gradient(135deg,var(--navy),#1e3a8a);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
     .user-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:.82rem;margin-top:5px}
     .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
@@ -56,7 +54,7 @@
 
 <div id="liff-loading">
   <div class="spinner"></div>
-  <p id="loading-msg" style="margin-top:14px;color:var(--navy);font-weight:600;font-size:1rem;">กำลังเชื่อมต่อ LINE...</p>
+  <p id="loading-msg" style="margin-top:14px;color:var(--navy);font-weight:600;font-size:1rem;">กำลังโหลด...</p>
   <p id="loading-sub" style="margin-top:4px;color:#6b7280;font-size:.8rem;"></p>
 </div>
 
@@ -67,26 +65,27 @@
   <button class="btn btn-sm btn-outline-secondary mt-3" onclick="location.reload()"><i class="fas fa-rotate me-1"></i> ลองใหม่</button>
 </div>
 
-<div id="register-screen">
-  <div style="font-size:3rem;margin-bottom:10px;">🔐</div>
-  <h5 style="color:#1f2937;margin-bottom:4px;">ยืนยันตัวตนครั้งแรก</h5>
-  <p style="color:#6b7280;font-size:.88rem;margin-bottom:18px;">เลือกประเภทการใช้งาน</p>
-  
-  <div class="d-flex w-100 mb-3" style="max-width:340px;">
-    <button id="btn-reg-admin" class="btn btn-primary flex-fill me-1" onclick="switchRegType('admin')">สายตรวจ/ธุรการ</button>
-    <button id="btn-reg-emp" class="btn btn-outline-primary flex-fill ms-1" onclick="switchRegType('emp')">พนักงาน รปภ.</button>
-  </div>
-
-  <div style="width:90%;max-width:340px;">
-    <p id="reg-helper-text" style="color:#6b7280;font-size:.85rem;margin-bottom:8px;">กรุณากรอก Password ที่ได้รับจาก Admin</p>
-    <input type="password" id="reg-password" class="form-control mb-3"
-      placeholder="Password" autocomplete="current-password"
-      onkeydown="if(event.key==='Enter')submitPassword()"
-      style="text-align:center;font-size:1.1rem;letter-spacing:.12em;">
-    <div id="reg-error" style="color:#ef4444;font-size:.83rem;min-height:20px;margin-bottom:8px;"></div>
-    <button class="btn btn-primary w-100" id="reg-btn" onclick="submitPassword()">
-      <i class="fas fa-unlock-alt me-2"></i>เข้าใช้งาน
-    </button>
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--navy);z-index:9998;flex-direction:column;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:#fff;border-radius:18px;padding:30px 24px;width:100%;max-width:360px;box-shadow:0 10px 30px rgba(0,0,0,.3);text-align:center;">
+    <div style="margin-bottom:18px;">
+      <img src="https://cdn1.sharemyimage.com/2026/02/07/Logo-W.png" alt="Logo" style="background:var(--navy);padding:10px;border-radius:6px;width:130px;">
+    </div>
+    <h5 class="fw-bold mb-3" style="color:var(--navy);">เข้าสู่ระบบ</h5>
+    <form id="form-login" onsubmit="doLogin(event)">
+      <div class="mb-3 text-start">
+        <label class="form-label">ชื่อผู้ใช้งาน</label>
+        <input type="text" id="login-username" class="form-control" placeholder="Username" autocomplete="username">
+      </div>
+      <div class="mb-3 text-start">
+        <label class="form-label">รหัสผ่าน</label>
+        <input type="password" id="login-password" class="form-control" placeholder="Password" autocomplete="current-password">
+      </div>
+      <div id="login-error" style="color:#ef4444;font-size:.83rem;min-height:20px;margin-bottom:6px;"></div>
+      <button type="submit" id="login-btn" class="btn btn-primary w-100 py-2" style="background:var(--navy);border:none;font-weight:700;">
+        <i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ
+      </button>
+    </form>
+    <div class="mt-3 text-muted" style="font-size:.78rem;">ระบบบันทึกเงินเบิก รปภ.</div>
   </div>
 </div>
 
@@ -97,7 +96,7 @@
         <div style="font-size:.95rem;font-weight:700;"><i class="fas fa-shield-alt me-2"></i>ระบบเบิกเงิน รปภ.</div>
         <div class="user-badge"><span class="dot"></span><span id="user-name-display">...</span></div>
       </div>
-      <div style="font-size:1.5rem;opacity:.5;"><i class="fab fa-line"></i></div>
+      <button onclick="logout()" class="btn btn-sm btn-outline-light" style="border-color:rgba(255,255,255,.45);" title="ออกจากระบบ"><i class="fas fa-sign-out-alt"></i></button>
     </div>
   </div>
 
@@ -111,9 +110,24 @@
       <div class="card-head"><i class="fas fa-user-circle" style="color:var(--green)"></i> ข้อมูลผู้ส่ง</div>
       <div class="form-wrap">
         <div class="mb-3">
-          <label class="form-label">ผู้ส่ง (LINE)</label>
+          <label class="form-label">ผู้ส่ง</label>
           <input type="text" id="headName" class="form-control" readonly>
         </div>
+
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="crossZoneChk" onchange="toggleCrossZone()">
+          <label class="form-check-label" for="crossZoneChk" style="font-size:.83rem;font-weight:600;color:#374151;">
+            <i class="fas fa-unlock-alt me-1" style="color:#f59e0b;"></i>ขอคนข้ามเขต
+          </label>
+        </div>
+
+        <div id="zone-wrap" class="mb-2" style="display:none;">
+          <label class="form-label">เลือกเขต</label>
+          <select class="form-select" id="zoneSelect" onchange="handleZoneChange()">
+            <option value="">-- เลือกเขต --</option>
+          </select>
+        </div>
+
         <div>
           <label class="form-label">หน่วยงาน (ไม่บังคับ)</label>
           <select class="form-select" id="siteSelect" onchange="handleSiteChange()">
@@ -171,13 +185,22 @@
 
 <script>
 // =====================================================
-const LIFF_ID    = '2010021484-QOacmA6b';
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxa3MfOzPz5hkSNLBGdOr_UUr0ZJu3UOuv98_yHu7UVlE7D9V2KvYe9TwgKqHJ9m4NIgw/exec';
 // =====================================================
 
-let currentUser = null;
-let lineUserId  = null;
-let empRowCount = 0;
+let currentUser     = null;
+let currentUsername = null;   // ใช้แทน lineUserId เป็นตัวระบุเจ้าของรายการ
+let empRowCount     = 0;
+let myOwnSites      = [];      // หน่วยงานในเขต/ความรับผิดชอบของผู้ใช้ (ตอนไม่ติ๊กข้ามเขต)
+
+// ===== Session: จำการ login 7 วัน (เหมือนหน้า index) =====
+const SESSION_KEY  = 'guardLiffSession';
+const SESSION_DAYS = 7;
+function saveSession(username){
+  const expire = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ username, expire }));
+}
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
 // แปลง YYYY-MM-DD → DD/MM/YYYY (พ.ศ.)
 function fmtDate(s) {
@@ -246,94 +269,64 @@ function showError(msg){
   document.getElementById('error-detail').innerHTML = msg;
   document.getElementById('error-screen').style.display = 'flex';
 }
-function showRegisterScreen(uid){
+function showLoginScreen(){
   hideLoading();
-  lineUserId = uid;
-  document.getElementById('register-screen').style.display = 'flex';
-  setTimeout(function(){ document.getElementById('reg-password').focus(); }, 100);
+  document.getElementById('login-screen').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('login-username').focus(); }, 100);
 }
 
-let currentRegType = 'admin';
-
-function switchRegType(type) {
-  currentRegType = type;
-  document.getElementById('reg-error').textContent = '';
-  const pwdInput = document.getElementById('reg-password');
-  
-  if (type === 'admin') {
-    document.getElementById('btn-reg-admin').classList.replace('btn-outline-primary', 'btn-primary');
-    document.getElementById('btn-reg-emp').classList.replace('btn-primary', 'btn-outline-primary');
-    document.getElementById('reg-helper-text').textContent = 'กรุณากรอก Password ที่ได้รับจาก Admin';
-    pwdInput.type = 'password';
-    pwdInput.placeholder = 'Password';
-  } else {
-    document.getElementById('btn-reg-emp').classList.replace('btn-outline-primary', 'btn-primary');
-    document.getElementById('btn-reg-admin').classList.replace('btn-primary', 'btn-outline-primary');
-    document.getElementById('reg-helper-text').textContent = 'กรุณากรอก "รหัสพนักงาน" ประจำตัว';
-    pwdInput.type = 'number';
-    pwdInput.placeholder = 'รหัสพนักงาน';
-  }
-  pwdInput.value = '';
-  pwdInput.focus();
-}
-
-async function submitPassword(){
-  const val = (document.getElementById('reg-password').value || '').trim();
-  const errEl = document.getElementById('reg-error');
-  const btn   = document.getElementById('reg-btn');
+// เข้าสู่ระบบด้วย username/password
+async function doLogin(ev){
+  if (ev) ev.preventDefault();
+  const u = (document.getElementById('login-username').value || '').trim();
+  const p = (document.getElementById('login-password').value || '').trim();
+  const errEl = document.getElementById('login-error');
   errEl.textContent = '';
-  if (!val) { errEl.textContent = 'กรุณากรอกข้อมูล'; return; }
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังตรวจสอบ...';
-  try {
-    const action = currentRegType === 'emp' ? 'registerEmployee' : 'registerByPassword';
-    const params = { lineUserId: lineUserId };
-    if (currentRegType === 'emp') params.empId = val;
-    else params.password = val;
+  if (!u || !p) { errEl.textContent = 'กรุณากรอก Username และ Password'; return; }
 
-    const data = await callBackend(action, params);
-    if (data && data.registered) {
-      document.getElementById('register-screen').style.display = 'none';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>กำลังเข้าสู่ระบบ...';
+  try {
+    const data = await callBackend('liffLogin', { username: u, password: p });
+    if (data && data.success) {
+      saveSession(data.username);
       currentUser = data;
+      currentUsername = data.username;
+      document.getElementById('login-screen').style.display = 'none';
       await showMainApp(data);
     } else {
-      errEl.textContent = (data && data.message) ? data.message : 'ข้อมูลไม่ถูกต้อง';
-      document.getElementById('reg-password').value = '';
-      document.getElementById('reg-password').focus();
+      errEl.textContent = (data && data.message) ? data.message : 'เข้าสู่ระบบไม่สำเร็จ';
+      document.getElementById('login-password').value = '';
     }
   } catch(err) {
     errEl.textContent = 'เกิดข้อผิดพลาด: ' + err.message;
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-unlock-alt me-2"></i>เข้าใช้งาน';
+    btn.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>เข้าสู่ระบบ';
   }
 }
+
+function logout(){
+  Swal.fire({
+    title: 'ออกจากระบบ?', icon: 'question',
+    showCancelButton: true, confirmButtonText: 'ใช่', cancelButtonText: 'ยกเลิก'
+  }).then(function(r){ if (r.isConfirmed) { clearSession(); location.reload(); } });
+}
+
 async function showMainApp(data){
   hideLoading();
   document.getElementById('main-app').style.display = 'block';
   document.getElementById('user-name-display').textContent = data.name + (data.role ? ' · ' + data.role : '');
   document.getElementById('headName').value = data.name;
 
-  if (data.role === 'Employee') {
-    // ซ่อนแท็บส่งยอด, แสดงแท็บประวัติ
-    document.getElementById('tab-send').style.display = 'none';
-    document.getElementById('btn-tab-send').style.display = 'none'; // ซ่อนปุ่มแท็บด้วย
-    document.getElementById('btn-submit-main').style.display = 'none';
-    
-    // เปลี่ยนชื่อแท็บประวัติ
-    document.getElementById('btn-tab-history').innerHTML = '<i class="fas fa-history me-1"></i> ประวัติ 45 วัน';
-    
-    switchTab('history');
-    loadMyRequests();
-  } else {
-    document.getElementById('btn-submit-main').style.display = 'block';
-    
-    // โหลดหน่วยงาน
-    await ensureAllSitesLoaded();
-    if (data.role !== 'สายตรวจ') populateSites(allSitesCache || []);
-    else populateSites(data.sites || []);
-    addEmpRow();
-  }
+  document.getElementById('btn-submit-main').style.display = 'block';
+
+  // โหลดหน่วยงานทั้งหมด (สำหรับ dropdown ของแต่ละพนักงาน) + เก็บหน่วยงานในเขตของผู้ใช้
+  await ensureAllSitesLoaded();
+  myOwnSites = data.sites || [];
+  populateSites(myOwnSites);
+  addEmpRow();
 }
 
 async function callBackend(action, params) {
@@ -344,30 +337,37 @@ async function callBackend(action, params) {
   catch(e) { throw new Error('Server error: ' + text.slice(0, 300)); }
 }
 
-window.addEventListener('load', async function() {
-  try {
-    setMsg('กำลัง init LIFF...', 'ขั้นตอน 1/2');
-    await liff.init({ liffId: LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login(); return; }
+window.addEventListener('load', checkAutoLogin);
 
-    setMsg('กำลังตรวจสอบสิทธิ์...', 'ขั้นตอน 2/2');
-    const profile = await liff.getProfile();
-    lineUserId = profile.userId;
-    const data = await callBackend('checkAndGetSites', { lineUserId });
-    
-    if (!data || !data.registered) { showRegisterScreen(lineUserId); return; }
-    currentUser = data;
-    await showMainApp(data);
-  } catch(err) {
-    showError('<b>Error:</b> ' + err.message);
+// ตรวจ session ที่จำไว้ → auto login, ถ้าไม่มี/หมดอายุ → แสดงหน้า login
+async function checkAutoLogin(){
+  const stored = localStorage.getItem(SESSION_KEY);
+  if (stored) {
+    try {
+      const s = JSON.parse(stored);
+      if (s && s.username && Date.now() < s.expire) {
+        setMsg('กำลังเข้าสู่ระบบ...', '');
+        const data = await callBackend('liffAutoLogin', { username: s.username });
+        if (data && data.success) {
+          currentUser = data;
+          currentUsername = data.username;
+          await showMainApp(data);
+          return;
+        }
+      }
+    } catch(e) { /* ตกไปหน้า login */ }
+    clearSession();
   }
-});
+  showLoginScreen();
+}
 
 function populateSites(sites){
   const sel = document.getElementById('siteSelect');
   sel.innerHTML = '<option value="">-- เลือกหน่วยงาน --</option>';
+  document.getElementById('site-empty-hint').style.display = 'none';
   if (!sites.length) {
     document.getElementById('site-empty-hint').style.display = 'block';
+    handleSiteChange();
     return;
   }
   sites.forEach(s => {
@@ -378,6 +378,62 @@ function populateSites(sites){
   if (sites.length === 1) {
     sel.value = sites[0].id;
     handleSiteChange();
+  } else {
+    handleSiteChange();
+  }
+}
+
+// ── ขอคนข้ามเขต: ติ๊กแล้วให้เลือกเขตอื่นก่อน → โหลดหน่วยงานในเขตนั้น ──
+function toggleCrossZone(){
+  const on = document.getElementById('crossZoneChk').checked;
+  const zoneWrap = document.getElementById('zone-wrap');
+  if (on) {
+    zoneWrap.style.display = 'block';
+    loadZones();
+    const sel = document.getElementById('siteSelect');
+    sel.innerHTML = '<option value="">-- เลือกเขตก่อน --</option>';
+    document.getElementById('site-empty-hint').style.display = 'none';
+    handleSiteChange();   // ซ่อนการ์ดพนักงานในหน่วยงานจนกว่าจะเลือกใหม่
+  } else {
+    zoneWrap.style.display = 'none';
+    document.getElementById('zoneSelect').value = '';
+    populateSites(myOwnSites);   // กลับไปหน่วยงานในเขตของผู้ใช้
+  }
+}
+
+async function loadZones(){
+  const sel = document.getElementById('zoneSelect');
+  if (sel.dataset.loaded === '1') return;   // โหลดครั้งเดียวพอ
+  sel.innerHTML = '<option value="">กำลังโหลดเขต...</option>';
+  try {
+    const zones = await callBackend('getAllZones');
+    sel.innerHTML = '<option value="">-- เลือกเขต --</option>';
+    (zones || []).forEach(z => {
+      const o = document.createElement('option');
+      o.value = z; o.textContent = z;
+      sel.appendChild(o);
+    });
+    sel.dataset.loaded = '1';
+  } catch(e) {
+    sel.innerHTML = '<option value="">โหลดเขตไม่สำเร็จ</option>';
+  }
+}
+
+async function handleZoneChange(){
+  const zone = document.getElementById('zoneSelect').value;
+  const sel  = document.getElementById('siteSelect');
+  document.getElementById('site-empty-hint').style.display = 'none';
+  if (!zone) {
+    sel.innerHTML = '<option value="">-- เลือกเขตก่อน --</option>';
+    handleSiteChange();
+    return;
+  }
+  sel.innerHTML = '<option value="">กำลังโหลดหน่วยงาน...</option>';
+  try {
+    const sites = await callBackend('getSitesByZone', { zone: zone });
+    populateSites(sites || []);
+  } catch(e) {
+    sel.innerHTML = '<option value="">โหลดหน่วยงานไม่สำเร็จ</option>';
   }
 }
 
@@ -612,7 +668,7 @@ function updateSummary(){
 
 // ── Submit ──
 async function submitRequests(){
-  if (!currentUser || !lineUserId) { alert('กรุณาเปิดแอปใหม่'); return; }
+  if (!currentUser || !currentUsername) { alert('กรุณาเข้าสู่ระบบใหม่'); return; }
   const siteEl   = document.getElementById('siteSelect');
   const siteId   = siteEl.value;
   const siteName = siteId ? siteEl.options[siteEl.selectedIndex].text : '';
@@ -683,7 +739,7 @@ async function submitRequests(){
     const r = await callBackend('saveLineRequests', {
       headName: currentUser.name,
       site:     siteId,
-      userId:   lineUserId,
+      userId:   currentUsername,
       rows:     JSON.stringify(rows)
     });
     
@@ -709,7 +765,7 @@ async function submitRequests(){
 window._reqDataCache = {};  // เก็บ snapshot ของแต่ละ row ไว้ให้ editReqAmount ใช้
 
 async function loadMyRequests(){
-  if (!lineUserId) return;
+  if (!currentUsername) return;
   const isEmp = currentUser.role === 'Employee';
   const titleText = isEmp ? 'ประวัติการเบิก/โอน (45 วันล่าสุด)' : 'รายการที่ส่งแล้ว';
   document.getElementById('history-title-text').textContent = titleText;
@@ -717,7 +773,7 @@ async function loadMyRequests(){
   document.getElementById('history-list').innerHTML = '<div class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin fa-2x"></i> กำลังโหลดประวัติ...</div>';
   try {
     const action = isEmp ? 'getEmployeeRequests' : 'getMyRequests';
-    const params = isEmp ? { empId: currentUser.empId } : { lineUserId: lineUserId };
+    const params = isEmp ? { empId: currentUser.empId } : { lineUserId: currentUsername };
     const rows = await callBackend(action, params);
     
     if (!rows || !rows.length) {
@@ -880,7 +936,7 @@ async function editReqAmount(reqId) {
   try {
     const res = await callBackend('editRequestAmount', {
       reqId:     reqId,
-      lineUserId: lineUserId,
+      lineUserId: currentUsername,
       newAmount: formValues.amount,
       newType:   formValues.type,
       newSite:   formValues.site,
@@ -914,7 +970,7 @@ async function cancelReq(reqId) {
 
   Swal.fire({ title: 'กำลังดำเนินการ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
   try {
-    const r = await callBackend('cancelRequest', { reqId: reqId, lineUserId: lineUserId });
+    const r = await callBackend('cancelRequest', { reqId: reqId, lineUserId: currentUsername });
     if (r.success) {
       Swal.fire({ icon: 'success', title: 'ยกเลิกสำเร็จ', text: 'ลบรายการเบิกเรียบร้อยแล้ว', timer: 1500, showConfirmButton: false });
       loadMyRequests();
