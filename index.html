@@ -399,6 +399,7 @@ async function showMainApp(data){
   await ensureAllSitesLoaded();
   myOwnSites = data.sites || [];
   populateSites(myOwnSites);
+  setActiveEmpSites(myOwnSites);   // ล็อก "หน่วยงานที่ลง" ในแถวตามสิทธิ์ผู้ใช้
   addEmpRow();
 }
 
@@ -470,7 +471,8 @@ function toggleCrossZone(){
   } else {
     zoneWrap.style.display = 'none';
     document.getElementById('zoneSelect').value = '';
-    populateSites(myOwnSites);   // กลับไปหน่วยงานในเขตของผู้ใช้
+    populateSites(myOwnSites);     // กลับไปหน่วยงานในเขตของผู้ใช้
+    setActiveEmpSites(myOwnSites); // คืนชุดหน่วยงานของแถวเป็นของผู้ใช้
   }
 }
 
@@ -498,6 +500,7 @@ async function handleZoneChange(){
   document.getElementById('site-empty-hint').style.display = 'none';
   if (!zone) {
     sel.innerHTML = '<option value="">-- เลือกเขตก่อน --</option>';
+    setActiveEmpSites(myOwnSites);
     handleSiteChange();
     return;
   }
@@ -505,6 +508,7 @@ async function handleZoneChange(){
   try {
     const sites = await callBackend('getSitesByZone', { zone: zone });
     populateSites(sites || []);
+    setActiveEmpSites(sites || []);   // แถวข้ามเขต → ใช้หน่วยงานของเขตที่เลือก
   } catch(e) {
     sel.innerHTML = '<option value="">โหลดหน่วยงานไม่สำเร็จ</option>';
   }
@@ -526,10 +530,12 @@ function addEmpRow(){
   row.className = 'emp-card emp-grid emp-row';   // คง class emp-card ไว้ให้ logic เดิมทำงานต่อ
   row.id = rid;
 
-  // ✅ ใช้รายการหน่วยงานทั้งหมดที่โหลดเก็บไว้ล่วงหน้าใน window.siteOptionsHtml
-  const siteOptions = (window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '')
-    ? window.siteOptionsHtml
-    : '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>';
+  // ✅ ใช้เฉพาะหน่วยงานที่ผู้ใช้มีสิทธิ์ (ล็อกตามเขต/สิทธิ์ ผ่าน setActiveEmpSites)
+  const siteOptions = (window.empSiteOptionsHtml && window.empSiteOptionsHtml.trim() !== '')
+    ? window.empSiteOptionsHtml
+    : ((window.siteOptionsHtml && window.siteOptionsHtml.trim() !== '')
+        ? window.siteOptionsHtml
+        : '<option value="" disabled>(ไม่พบข้อมูลหน่วยงาน)</option>');
 
   row.innerHTML = `
     <div class="emp-no">${empRowCount}</div>
@@ -1035,6 +1041,23 @@ async function ensureAllSitesLoaded(){
 async function loadAllSitesToOptions(){
   // delegate ไปที่ ensureAllSitesLoaded เพื่อไม่ให้ call API ซ้ำ
   await ensureAllSitesLoaded();
+}
+
+// ── ชุดหน่วยงานที่ใช้ได้ในช่อง "หน่วยงานที่ลง" ของแต่ละแถว (ล็อกตามสิทธิ์/เขต) ──
+window.empSiteOptionsHtml = '';
+
+function buildEmpSiteOptions(sites){
+  return (sites || []).map(s => `<option value="${s.name}">${s.id} - ${s.name}</option>`).join('');
+}
+
+// กำหนดชุดหน่วยงานที่เลือกได้ในแถว + รีเฟรช dropdown ของแถวที่มีอยู่ (คงค่าที่เลือกไว้ถ้ายังมี)
+function setActiveEmpSites(sites){
+  window.empSiteOptionsHtml = buildEmpSiteOptions(sites);
+  document.querySelectorAll('.emp-card .emp-site').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="" disabled selected>-- เลือกหน่วยงาน --</option>' + window.empSiteOptionsHtml;
+    if (cur) sel.value = cur; // คืนค่าที่เลือกไว้ถ้ายังอยู่ในชุดใหม่
+  });
 }
 
 // ── รปภ. นอก: บันทึก + แสดงรายชื่อ ──
