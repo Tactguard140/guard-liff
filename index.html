@@ -515,7 +515,7 @@ function addEmpRow(){
       <div class="row g-2">
         <div class="col-5">
           <label class="form-label">รหัสพนักงาน</label>
-          <input type="number" class="form-control emp-id" placeholder="เช่น 1001" onchange="findEmpName(this)">
+          <input type="text" inputmode="text" class="form-control emp-id" placeholder="เช่น 1001 หรือ N0001" onchange="findEmpName(this)">
         </div>
 
         <div class="col-7">
@@ -1072,7 +1072,7 @@ async function saveExtGuard(){
       addedBy:  (currentUser && currentUser.name) ? currentUser.name : (currentUsername || '')
     });
     if (r && r.success) {
-      Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', timer: 1300, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ', html: 'รหัสที่ระบบออกให้: <b style="color:#06C755;font-size:1.2rem;">' + (r.code || '-') + '</b>', confirmButtonColor: '#06C755' });
       ['ext-name','ext-phone','ext-bankname','ext-bankacc','ext-note'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('ext-name').focus();
       loadExtGuards();
@@ -1085,6 +1085,16 @@ async function saveExtGuard(){
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-save me-2"></i>บันทึกรายชื่อ';
   }
+}
+
+// ดึง รปภ. นอก เข้าฟอร์มเบิก (สลับไปแท็บส่งรายการ)
+function addExtToReq(code, name){
+  switchTab('send');
+  document.getElementById('btn-tab-send').classList.add('active');
+  document.getElementById('btn-tab-history').classList.remove('active');
+  document.getElementById('btn-tab-ext').classList.remove('active');
+  quickAddEmp(code, name);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 async function loadExtGuards(){
@@ -1102,18 +1112,22 @@ async function loadExtGuards(){
         ? `<div class="col-12"><span class="text-muted">บัญชี:</span> ${g.bankName || '-'} ${g.bankAcc || ''}</div>` : '';
       const noteLine = g.note
         ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${g.note}</span></div>` : '';
+      const safeName = (g.name || '').replace(/'/g, "\\'");
       html += `
         <div class="section-card mb-2">
           <div class="form-wrap">
             <div class="row g-1" style="font-size:.85rem;">
               <div class="col-12 d-flex justify-content-between align-items-center">
                 <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${g.name}</b>
-                <span class="text-muted" style="font-size:.72rem;">${g.timestamp}</span>
+                <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${g.id}</span>
               </div>
               <div class="col-12"><span class="text-muted">เบอร์:</span> <a href="tel:${g.phone}">${g.phone}</a></div>
               ${bankLine}
               ${noteLine}
-              ${ g.addedBy ? `<div class="col-12" style="font-size:.72rem;color:#9ca3af;">เพิ่มโดย: ${g.addedBy}</div>` : '' }
+              <div class="col-12 d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                <span class="text-muted" style="font-size:.72rem;">${g.timestamp}${ g.addedBy ? ' · เพิ่มโดย ' + g.addedBy : '' }</span>
+                <button class="btn-quick-add" type="button" onclick="addExtToReq('${g.id}', '${safeName}')"><i class="fas fa-plus me-1"></i> เบิก</button>
+              </div>
             </div>
           </div>
         </div>`;
