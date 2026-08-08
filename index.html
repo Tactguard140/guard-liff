@@ -40,7 +40,7 @@
     /* ตารางรายการพนักงาน (เลื่อนซ้าย-ขวา 1 แถว/รายการ) */
     .emp-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid #f3f4f6}
     .emp-grid-inner{display:inline-block;min-width:100%}
-    .emp-grid{display:grid;grid-template-columns:36px 116px 170px 116px 110px 154px 150px 188px 170px 46px;gap:8px;align-items:center}
+    .emp-grid{display:grid;grid-template-columns:36px 116px 170px 116px 110px 154px 150px 188px 148px 170px 46px;gap:8px;align-items:center}
     .emp-grid-head{padding:8px 12px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;font-size:.76rem;font-weight:700;color:var(--navy);white-space:nowrap}
     .emp-row{padding:10px 12px;border-bottom:1px solid #f3f4f6;border-left:3px solid transparent}
     .emp-row .form-control,.emp-row .form-select{font-size:.85rem;padding:.32rem .5rem;height:auto}
@@ -173,6 +173,7 @@
             <div>ประเภทการเบิก</div>
             <div>วันที่ลงงาน</div>
             <div>หน่วยงานที่ลง</div>
+            <div>ประเภทการจ่าย</div>
             <div>โน้ต</div>
             <div>ลบ</div>
           </div>
@@ -283,6 +284,15 @@ function fmtDate(s) {
   const yyyy = parseInt(p[0]);
   const thYear = yyyy < 2500 ? yyyy + 543 : yyyy;
   return p[2] + '/' + p[1] + '/' + thYear;
+}
+
+// แปลงเวลาส่ง "DD/MM/YYYY HH:mm" (ค.ศ.) → "DD/MM/YYYY HH:mm" (พ.ศ.)
+function fmtTs(s) {
+  if (!s) return '-';
+  const m = String(s).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(.*)$/);
+  if (!m) return String(s);
+  const yyyy = parseInt(m[3], 10);
+  return m[1] + '/' + m[2] + '/' + (yyyy < 2500 ? yyyy + 543 : yyyy) + (m[4] || '');
 }
 
 // แปลง Date object → DD/MM/YYYY (พ.ศ.) สำหรับ flatpickr display
@@ -563,6 +573,12 @@ function addEmpRow(){
         ${siteOptions}
       </select>
     </div>
+    <div>
+      <select class="form-select emp-paymode">
+        <option value="ส่งเบิกปกติ" selected>ส่งเบิกปกติ</option>
+        <option value="สำรองจ่ายแล้ว">สำรองจ่ายแล้ว</option>
+      </select>
+    </div>
     <div><input type="text" class="form-control emp-note" placeholder="หมายเหตุ..."></div>
     <div style="text-align:center;">
       <button class="btn-remove-emp" title="ลบ" onclick="document.getElementById('${rid}').remove();updateSummary()"><i class="fas fa-times-circle"></i></button>
@@ -578,6 +594,16 @@ function addEmpRow(){
     const need = (this.value === 'รับสดควงเวร' || this.value === 'รับสดรายวัน');
     workDateEl.style.borderColor = need ? '#f59e0b' : '';
     if (!need) workDateEl.value = '';
+  });
+
+  // 🌟 "สำรองจ่ายแล้ว" → บังคับกรอกหมายเหตุ
+  const payModeSel = row.querySelector('.emp-paymode');
+  const noteEl     = row.querySelector('.emp-note');
+  payModeSel.addEventListener('change', function() {
+    const adv = (this.value === 'สำรองจ่ายแล้ว');
+    noteEl.style.borderColor = adv ? '#f59e0b' : '';
+    noteEl.placeholder = adv ? 'ระบุหมายเหตุ (บังคับ)' : 'หมายเหตุ...';
+    row.style.borderLeftColor = adv ? '#f59e0b' : 'transparent';
   });
 
   updateSummary();
@@ -708,6 +734,7 @@ async function submitRequests(){
   let rows = [], hasErr = false;
   let tempKeys = []; // 🌟 คีย์เช็คซ้ำ = รหัส + ผลัด + ประเภท + วันที่ลงงาน
   let duplicateInForm = false;
+  let needNote = false; // 🌟 มีรายการ "สำรองจ่ายแล้ว" ที่ยังไม่ใส่หมายเหตุ
 
   document.querySelectorAll('.emp-card').forEach(card => {
     const id       = card.querySelector('.emp-id').value;
@@ -718,6 +745,7 @@ async function submitRequests(){
     const empSite  = card.querySelector('.emp-site').value; // หน่วยงานที่ลง (ถ้าเลือก)
     const empNote  = (card.querySelector('.emp-note') ? card.querySelector('.emp-note').value : '').trim();
     const wd       = (card.querySelector('.emp-work-date') ? card.querySelector('.emp-work-date').value : '');
+    const payMode  = (card.querySelector('.emp-paymode') ? card.querySelector('.emp-paymode').value : 'ส่งเบิกปกติ');
 
     if (!id && !amt) return;
 
@@ -740,9 +768,19 @@ async function submitRequests(){
       return;
     }
 
+    // 🌟 บังคับใส่หมายเหตุ ถ้าเลือก "สำรองจ่ายแล้ว"
+    if (payMode === 'สำรองจ่ายแล้ว' && !empNote) {
+      card.style.borderColor = '#ef4444';
+      const nEl = card.querySelector('.emp-note');
+      if (nEl) nEl.style.borderColor = '#ef4444';
+      needNote = true;
+      hasErr = true;
+      return;
+    }
+
     card.style.borderColor = '';
     // ถ้าเลือกหน่วยงานที่ลงไว้ → ใช้ค่านั้น, ถ้าไม่ → ใช้หน่วยงานประจำ (defaultSite ที่ dropdown ถูก set ไว้แล้ว)
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd });
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd, payMode: payMode });
   });
 
   // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
@@ -753,8 +791,17 @@ async function submitRequests(){
   }
 
   if (hasErr) {
-    Swal.fire('ข้อมูลไม่ถูกต้อง', 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง', 'error');
-    setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => c.style.borderColor = ''), 3000);
+    Swal.fire(
+      'ข้อมูลไม่ถูกต้อง',
+      needNote
+        ? 'รายการที่เลือก "สำรองจ่ายแล้ว" ต้องระบุหมายเหตุด้วย (กรอบแดง)'
+        : 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง',
+      'error'
+    );
+    setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => {
+      c.style.borderColor = '';
+      const n = c.querySelector('.emp-note'); if (n) n.style.borderColor = '';
+    }), 3000);
     return;
   }
   if (!rows.length) { Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลพนักงานอย่างน้อย 1 คน', 'warning'); return; }
@@ -829,6 +876,11 @@ async function loadMyRequests(){
       // แถวโน้ต
       const noteRow = r.note ? `<div class="col-12"><span class="text-muted">โน้ต:</span> <span class="text-secondary">${r.note}</span></div>` : '';
 
+      // 🌟 แถวประเภทการจ่าย (แสดงเฉพาะ "สำรองจ่ายแล้ว")
+      const payModeRow = (r.payMode === 'สำรองจ่ายแล้ว')
+        ? `<div class="col-12"><span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:3px 9px;"><i class="fas fa-hand-holding-dollar me-1"></i>สำรองจ่ายแล้ว</span></div>`
+        : '';
+
       // 🌟 ปุ่มแก้ไข + ยกเลิกเบิก ถ้าสถานะเป็น "รอดำเนินการ" และไม่ใช่ Employee
       const editBtn = (!isTransferred && currentUser.role !== 'Employee') ? `
         <div class="col-12 mt-2 pt-2 border-top">
@@ -848,7 +900,7 @@ async function loadMyRequests(){
       html += `
         <div class="section-card mb-2">
           <div class="card-head d-flex justify-content-between">
-            <span style="font-size:.8rem;"><i class="fas fa-clock me-1"></i>${r.timestamp}</span>
+            <span style="font-size:.8rem;"><i class="fas fa-clock me-1"></i>${fmtTs(r.timestamp)}</span>
             <span class="badge rounded-pill ${bc}" style="font-size:.75rem;padding:3px 9px;">${st}</span>
           </div>
           <div class="form-wrap">
@@ -859,6 +911,7 @@ async function loadMyRequests(){
               <div class="col-6"><span class="text-muted">ผลัด:</span> ${r.shift || '-'}</div>
               <div class="col-6"><span class="text-muted">ประเภท:</span> <span class="text-primary">${r.type || '-'}</span></div>
               <div class="col-6 text-end">${ r.workDate ? `<small class="text-success d-block">ลงงาน: ${fmtDate(r.workDate)}</small>` : '' }<b class="text-success" style="font-size:1rem;">${parseFloat(r.amount).toLocaleString()} ฿</b></div>
+              ${payModeRow}
               ${noteRow}
             </div>
             ${editBtn}
