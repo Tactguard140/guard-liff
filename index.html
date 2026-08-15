@@ -40,7 +40,7 @@
     /* ตารางรายการพนักงาน (เลื่อนซ้าย-ขวา 1 แถว/รายการ) */
     .emp-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid #f3f4f6}
     .emp-grid-inner{display:inline-block;min-width:100%}
-    .emp-grid{display:grid;grid-template-columns:36px 116px 170px 116px 110px 154px 150px 188px 148px 170px 46px;gap:8px;align-items:center}
+    .emp-grid{display:grid;grid-template-columns:36px 116px 170px 116px 110px 154px 150px 188px 148px 160px 170px 46px;gap:8px;align-items:center}
     .emp-grid-head{padding:8px 12px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;font-size:.76rem;font-weight:700;color:var(--navy);white-space:nowrap}
     .emp-row{padding:10px 12px;border-bottom:1px solid #f3f4f6;border-left:3px solid transparent}
     .emp-row .form-control,.emp-row .form-select{font-size:.85rem;padding:.32rem .5rem;height:auto}
@@ -174,6 +174,7 @@
             <div>วันที่ลงงาน</div>
             <div>หน่วยงานที่ลง</div>
             <div>ประเภทการจ่าย</div>
+            <div>ผู้สำรองจ่าย</div>
             <div>โน้ต</div>
             <div>ลบ</div>
           </div>
@@ -407,6 +408,7 @@ async function showMainApp(data){
 
   // โหลดหน่วยงานทั้งหมด (สำหรับ dropdown ของแต่ละพนักงาน) + เก็บหน่วยงานในเขตของผู้ใช้
   await ensureAllSitesLoaded();
+  await ensurePayersLoaded();      // 🌟 รายชื่อผู้สำรองจ่าย (สายตรวจ)
   myOwnSites = data.sites || [];
   populateSites(myOwnSites);
   setActiveEmpSites(myOwnSites);   // ล็อก "หน่วยงานที่ลง" ในแถวตามสิทธิ์ผู้ใช้
@@ -579,6 +581,11 @@ function addEmpRow(){
         <option value="สำรองจ่ายแล้ว">สำรองจ่ายแล้ว</option>
       </select>
     </div>
+    <div>
+      <select class="form-select emp-payer" disabled>
+        ${window.payerOptionsHtml || '<option value="">(ไม่พบรายชื่อสายตรวจ)</option>'}
+      </select>
+    </div>
     <div><input type="text" class="form-control emp-note" placeholder="หมายเหตุ..."></div>
     <div style="text-align:center;">
       <button class="btn-remove-emp" title="ลบ" onclick="document.getElementById('${rid}').remove();updateSummary()"><i class="fas fa-times-circle"></i></button>
@@ -596,14 +603,17 @@ function addEmpRow(){
     if (!need) workDateEl.value = '';
   });
 
-  // 🌟 "สำรองจ่ายแล้ว" → บังคับกรอกหมายเหตุ
+  // 🌟 "สำรองจ่ายแล้ว" → บังคับกรอกหมายเหตุ + เปิดช่องผู้สำรองจ่าย
   const payModeSel = row.querySelector('.emp-paymode');
   const noteEl     = row.querySelector('.emp-note');
+  const payerSel   = row.querySelector('.emp-payer');
   payModeSel.addEventListener('change', function() {
     const adv = (this.value === 'สำรองจ่ายแล้ว');
     noteEl.style.borderColor = adv ? '#f59e0b' : '';
     noteEl.placeholder = adv ? 'ระบุหมายเหตุ (บังคับ)' : 'หมายเหตุ...';
     row.style.borderLeftColor = adv ? '#f59e0b' : 'transparent';
+    payerSel.disabled = !adv;
+    payerSel.style.borderColor = adv ? '#f59e0b' : '';
   });
 
   updateSummary();
@@ -734,7 +744,8 @@ async function submitRequests(){
   let rows = [], hasErr = false;
   let tempKeys = []; // 🌟 คีย์เช็คซ้ำ = รหัส + ผลัด + ประเภท + วันที่ลงงาน
   let duplicateInForm = false;
-  let needNote = false; // 🌟 มีรายการ "สำรองจ่ายแล้ว" ที่ยังไม่ใส่หมายเหตุ
+  let needNote = false;  // 🌟 มีรายการ "สำรองจ่ายแล้ว" ที่ยังไม่ใส่หมายเหตุ
+  let needPayer = false; // 🌟 มีรายการ "สำรองจ่ายแล้ว" ที่ยังไม่เลือกผู้สำรองจ่าย
 
   document.querySelectorAll('.emp-card').forEach(card => {
     const id       = card.querySelector('.emp-id').value;
@@ -746,6 +757,7 @@ async function submitRequests(){
     const empNote  = (card.querySelector('.emp-note') ? card.querySelector('.emp-note').value : '').trim();
     const wd       = (card.querySelector('.emp-work-date') ? card.querySelector('.emp-work-date').value : '');
     const payMode  = (card.querySelector('.emp-paymode') ? card.querySelector('.emp-paymode').value : 'ส่งเบิกปกติ');
+    const payer    = (card.querySelector('.emp-payer') ? card.querySelector('.emp-payer').value : '').trim();
 
     if (!id && !amt) return;
 
@@ -778,9 +790,19 @@ async function submitRequests(){
       return;
     }
 
+    // 🌟 บังคับเลือกผู้สำรองจ่าย ถ้าเลือก "สำรองจ่ายแล้ว"
+    if (payMode === 'สำรองจ่ายแล้ว' && !payer) {
+      card.style.borderColor = '#ef4444';
+      const pEl = card.querySelector('.emp-payer');
+      if (pEl) pEl.style.borderColor = '#ef4444';
+      needPayer = true;
+      hasErr = true;
+      return;
+    }
+
     card.style.borderColor = '';
     // ถ้าเลือกหน่วยงานที่ลงไว้ → ใช้ค่านั้น, ถ้าไม่ → ใช้หน่วยงานประจำ (defaultSite ที่ dropdown ถูก set ไว้แล้ว)
-    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd, payMode: payMode });
+    rows.push({ id, name: nm, amount: parseFloat(amt), shift: sh, type: typ, site: empSite || siteName, note: empNote, workDate: wd, payMode: payMode, payer: payMode === 'สำรองจ่ายแล้ว' ? payer : '' });
   });
 
   // ถ้ากรอกพนักงานซ้ำกันในหน้าเดียวกัน ให้แจ้งเตือนทันที
@@ -795,12 +817,15 @@ async function submitRequests(){
       'ข้อมูลไม่ถูกต้อง',
       needNote
         ? 'รายการที่เลือก "สำรองจ่ายแล้ว" ต้องระบุหมายเหตุด้วย (กรอบแดง)'
-        : 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง',
+        : needPayer
+          ? 'รายการที่เลือก "สำรองจ่ายแล้ว" ต้องเลือกผู้สำรองจ่ายด้วย (กรอบแดง)'
+          : 'กรุณาตรวจสอบรายการที่ขึ้นกรอบแดง',
       'error'
     );
     setTimeout(() => document.querySelectorAll('.emp-card').forEach(c => {
       c.style.borderColor = '';
-      const n = c.querySelector('.emp-note'); if (n) n.style.borderColor = '';
+      const n = c.querySelector('.emp-note');  if (n) n.style.borderColor = '';
+      const p = c.querySelector('.emp-payer'); if (p) p.style.borderColor = '';
     }), 3000);
     return;
   }
@@ -878,7 +903,7 @@ async function loadMyRequests(){
 
       // 🌟 แถวประเภทการจ่าย (แสดงเฉพาะ "สำรองจ่ายแล้ว")
       const payModeRow = (r.payMode === 'สำรองจ่ายแล้ว')
-        ? `<div class="col-12"><span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:3px 9px;"><i class="fas fa-hand-holding-dollar me-1"></i>สำรองจ่ายแล้ว</span></div>`
+        ? `<div class="col-12"><span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:.72rem;padding:3px 9px;"><i class="fas fa-hand-holding-dollar me-1"></i>สำรองจ่ายแล้ว${r.payer ? ' · ' + r.payer : ''}</span></div>`
         : '';
 
       // 🌟 ปุ่มแก้ไข + ยกเลิกเบิก ถ้าสถานะเป็น "รอดำเนินการ" และไม่ใช่ Employee
@@ -1085,6 +1110,27 @@ async function ensureAllSitesLoaded(){
 
   allSiteOptionsHtml     = optHtml;
   window.siteOptionsHtml = optHtml; // sync ให้ addEmpRow() อ่านได้
+}
+
+// ── 🌟 ผู้สำรองจ่าย (Users ที่ role = สายตรวจ) ──
+window.payerOptionsHtml = '';
+let payersCache = [];
+
+async function ensurePayersLoaded(){
+  if (payersCache.length) return;
+  try {
+    const res = await callBackend('getPayers');
+    payersCache = Array.isArray(res) ? res : [];
+  } catch(e) { payersCache = []; }
+
+  const myName = (currentUser && currentUser.name) ? currentUser.name : '';
+  // ค่าเริ่มต้น = ชื่อตัวเอง (ถ้าตัวเองอยู่ในรายชื่อสายตรวจ) แต่เปลี่ยนได้
+  window.payerOptionsHtml = payersCache
+    .map(p => `<option value="${p.name}" ${p.name === myName ? 'selected' : ''}>${p.name}</option>`)
+    .join('');
+  if (!payersCache.some(p => p.name === myName)) {
+    window.payerOptionsHtml = '<option value="" selected>-- เลือกผู้สำรองจ่าย --</option>' + window.payerOptionsHtml;
+  }
 }
 
 async function loadAllSitesToOptions(){
