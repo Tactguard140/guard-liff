@@ -402,6 +402,14 @@ async function showMainApp(data){
   hideLoading();
   document.getElementById('main-app').style.display = 'block';
   document.getElementById('user-name-display').textContent = data.name + (data.role ? ' · ' + data.role : '');
+
+  // 🏷️ ตรวจว่า Code.gs ที่ deploy อยู่เป็นเวอร์ชันเดียวกับหน้านี้หรือไม่
+  callBackend('getVersion').then(function(v) {
+    const srv = (v && v.version) ? v.version : 'เก่า';
+    if (srv !== 'v3-payer') {
+      document.getElementById('user-name-display').textContent += '  ⚠️ Server=' + srv;
+    }
+  }).catch(function() {});
   document.getElementById('headName').value = data.name;
 
   document.getElementById('btn-submit-main').style.display = 'block';
