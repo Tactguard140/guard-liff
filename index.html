@@ -1123,12 +1123,19 @@ async function ensurePayersLoaded(){
     payersCache = Array.isArray(res) ? res : [];
   } catch(e) { payersCache = []; }
 
-  const myName = (currentUser && currentUser.name) ? currentUser.name : '';
-  // ค่าเริ่มต้น = ชื่อตัวเอง (ถ้าตัวเองอยู่ในรายชื่อสายตรวจ) แต่เปลี่ยนได้
+  const myName = (currentUser && currentUser.name)     ? String(currentUser.name).trim()     : '';
+  const myUser = (currentUser && currentUser.username) ? String(currentUser.username).trim() : '';
+
+  // 🌟 เช็คว่าผู้ที่ล็อกอินตรงกับสายตรวจคนไหน (เทียบ username ก่อน แล้วค่อยเทียบชื่อ)
+  const me = payersCache.find(p => myUser && String(p.username).trim() === myUser)
+          || payersCache.find(p => myName && String(p.name).trim() === myName);
+  const defaultPayer = me ? me.name : '';
+
+  // ค่าเริ่มต้น = ชื่อตัวเอง (ถ้าตัวเองเป็นสายตรวจ) แต่ยังเปลี่ยนเป็นคนอื่นได้
   window.payerOptionsHtml = payersCache
-    .map(p => `<option value="${p.name}" ${p.name === myName ? 'selected' : ''}>${p.name}</option>`)
+    .map(p => `<option value="${p.name}" ${p.name === defaultPayer ? 'selected' : ''}>${p.name}</option>`)
     .join('');
-  if (!payersCache.some(p => p.name === myName)) {
+  if (!defaultPayer) {
     window.payerOptionsHtml = '<option value="" selected>-- เลือกผู้สำรองจ่าย --</option>' + window.payerOptionsHtml;
   }
 }
