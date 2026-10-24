@@ -113,6 +113,7 @@
     <button class="tab-btn active" id="btn-tab-send" onclick="switchTab('send')"><i class="fas fa-paper-plane me-1"></i> ส่งรายการ</button>
     <button class="tab-btn" id="btn-tab-history" onclick="switchTab('history');loadMyRequests();"><i class="fas fa-history me-1"></i> รายการที่ส่งแล้ว</button>
     <button class="tab-btn" id="btn-tab-ext" onclick="switchTab('ext');loadExtGuards();"><i class="fas fa-user-plus me-1"></i> รปภ.สแปร์-นอก</button>
+    <button class="tab-btn" id="btn-tab-guards" onclick="switchTab('guards');loadMyGuards();" style="display:none;"><i class="fas fa-user-shield me-1"></i> รปภ.ของฉัน</button>
   </div>
 
   <div id="tab-send" class="tab-pane active">
@@ -248,6 +249,33 @@
         <input type="text" id="ext-search" class="form-control" placeholder="ค้นหา ชื่อ / เบอร์ / รหัส..." oninput="renderExtList()" style="padding-left:34px;">
       </div>
       <div id="ext-list">
+        <div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 👮 รปภ. ในหน่วยงานของผู้ใช้ (สายตรวจ เพิ่ม/แก้ไข/ลบ) -->
+  <div id="tab-guards" class="tab-pane">
+    <div style="padding:10px;">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <b style="color:var(--navy);">รปภ. ในหน่วยงานของฉัน <span id="guard-count" style="font-weight:400;color:#6b7280;font-size:.82rem;"></span></b>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="loadMyGuards()"><i class="fas fa-rotate"></i></button>
+          <button class="btn btn-sm btn-success rounded-pill" onclick="openGuardForm()" style="font-weight:600;"><i class="fas fa-plus me-1"></i> เพิ่ม รปภ.</button>
+        </div>
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-7" style="position:relative;">
+          <i class="fas fa-search" style="position:absolute;left:18px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.85rem;"></i>
+          <input type="text" id="guard-search" class="form-control" placeholder="ค้นหา ชื่อ / รหัส / เบอร์..." oninput="renderMyGuards()" style="padding-left:30px;">
+        </div>
+        <div class="col-5">
+          <select id="guard-site-filter" class="form-select" onchange="renderMyGuards()">
+            <option value="">ทุกหน่วยงาน</option>
+          </select>
+        </div>
+      </div>
+      <div id="guard-list">
         <div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>
       </div>
     </div>
@@ -406,13 +434,16 @@ async function showMainApp(data){
   // 🏷️ ตรวจว่า Code.gs ที่ deploy อยู่เป็นเวอร์ชันเดียวกับหน้านี้หรือไม่
   callBackend('getVersion').then(function(v) {
     const srv = (v && v.version) ? v.version : 'เก่า';
-    if (srv !== 'v3-payer') {
+    if (srv !== 'v4-myguards') {
       document.getElementById('user-name-display').textContent += '  ⚠️ Server=' + srv;
     }
   }).catch(function() {});
   document.getElementById('headName').value = data.name;
 
   document.getElementById('btn-submit-main').style.display = 'block';
+
+  // 👮 แท็บ "รปภ.ของฉัน" แสดงเฉพาะ role ที่จัดการ รปภ. ได้ (ฝั่ง server ตรวจสิทธิ์ซ้ำอีกชั้น)
+  document.getElementById('btn-tab-guards').style.display = canManageGuards() ? '' : 'none';
 
   // โหลดหน่วยงานทั้งหมด (สำหรับ dropdown ของแต่ละพนักงาน) + เก็บหน่วยงานในเขตของผู้ใช้
   await ensureAllSitesLoaded();
@@ -1400,6 +1431,258 @@ async function promoteExtGuard(code){
       loadExtGuards();
     } else {
       Swal.fire('ไม่สำเร็จ', (r && r.message) ? r.message : 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
+  }
+}
+
+// ── 👮 รปภ.ของฉัน: สายตรวจ เพิ่ม / แก้ไข / ลบ รปภ. ในหน่วยงานที่รับผิดชอบ ──
+//    (ต้องตรงกับ _canManageGuards_ ใน Code.gs)
+const GUARD_MANAGER_ROLES = ['สายตรวจ', 'ผู้ดูแลระบบ', 'ผู้ดูแลระบบหลัก', 'ธุรการ', 'บัญชี', 'แอดมิน', 'admin', 'Admin'];
+const GUARD_TYPES     = [['ประจำ','พนักงานประจำ'], ['สแปร์','สแปร์'], ['รายวัน','รับเงินสด (รายวัน)'], ['ลาออก','ลาออก'], ['หนีหาย','หนีหาย']];
+const GUARD_POSITIONS = ['รปภ.', 'หัวหน้าชุด', 'สายตรวจ'];
+const GUARD_BANKS     = [['KBANK','กสิกรไทย'], ['SCB','ไทยพาณิชย์'], ['BBL','กรุงเทพ'], ['KTB','กรุงไทย'], ['TTB','ทหารไทยธนชาต'], ['GSB','ออมสิน']];
+
+window._myGuards     = [];   // cache รายชื่อ รปภ. ในหน่วยงานของผู้ใช้
+window._myGuardSites = [];   // หน่วยงานที่ผู้ใช้จัดการได้ [{id,name}]
+
+function canManageGuards(){
+  return !!currentUser && GUARD_MANAGER_ROLES.indexOf((currentUser.role || '').toString().trim()) >= 0;
+}
+
+function escHtml(s){
+  return (s == null ? '' : String(s))
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function loadMyGuards(){
+  const listEl = document.getElementById('guard-list');
+  listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin"></i> กำลังโหลด...</div>';
+  try {
+    const r = await callBackend('getMyGuards', { username: currentUsername });
+    if (!r || !r.success) {
+      listEl.innerHTML = '<div class="text-center text-danger py-4">' + escHtml((r && (r.message || r.error)) || 'โหลดไม่สำเร็จ') + '</div>';
+      return;
+    }
+    window._myGuards     = r.guards || [];
+    window._myGuardSites = r.sites  || [];
+
+    // เติม dropdown กรองหน่วยงาน (คงค่าที่เลือกไว้)
+    const sel = document.getElementById('guard-site-filter');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">ทุกหน่วยงาน</option>' +
+      window._myGuardSites.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`).join('');
+    sel.value = cur;
+    renderMyGuards();
+  } catch(e) {
+    listEl.innerHTML = '<div class="text-center text-danger py-4">โหลดไม่สำเร็จ: ' + escHtml(e) + '</div>';
+  }
+}
+
+function renderMyGuards(){
+  const listEl = document.getElementById('guard-list');
+  const all    = window._myGuards || [];
+  const q      = (document.getElementById('guard-search').value || '').trim().toLowerCase();
+  const siteF  = document.getElementById('guard-site-filter').value;
+
+  const rows = all.filter(g => {
+    if (siteF && g.siteId !== siteF) return false;
+    if (!q) return true;
+    return (g.name || '').toLowerCase().includes(q) ||
+           (g.id   || '').toLowerCase().includes(q) ||
+           (g.phone|| '').toLowerCase().includes(q);
+  });
+  document.getElementById('guard-count').textContent = '(' + rows.length + ' คน)';
+
+  if (!rows.length) {
+    listEl.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3"></i>' +
+      (all.length ? 'ไม่พบรายชื่อที่ตรงกับเงื่อนไข' : 'ยังไม่มี รปภ. ในหน่วยงานของคุณ') + '</div>';
+    return;
+  }
+
+  let html = '';
+  rows.forEach(g => {
+    const blocked = (g.type === 'ลาออก' || g.type === 'หนีหาย');
+    const typeBadge = blocked
+      ? `<span class="badge rounded-pill" style="background:#fee2e2;color:#991b1b;font-size:.72rem;">${escHtml(g.type)}${g.terminationDate ? ' ' + fmtDate(g.terminationDate) : ''}</span>`
+      : `<span class="badge rounded-pill" style="background:#d1fae5;color:#065f46;font-size:.72rem;">${escHtml(g.type || '-')}</span>`;
+    const bankLine = (g.bankName || g.bankAcc)
+      ? `<div class="col-12"><span class="text-muted">บัญชี:</span> ${escHtml(g.bankName || '-')} ${escHtml(g.bankAcc || '')}</div>` : '';
+    const phoneLine = g.phone
+      ? `<span class="text-muted ms-2">เบอร์:</span> <a href="tel:${escHtml(g.phone)}">${escHtml(g.phone)}</a>` : '';
+    const reqBtn = blocked ? '' :
+      `<button class="btn-quick-add ms-auto" type="button" onclick="addMyGuardToReq('${escHtml(g.id)}')"><i class="fas fa-plus me-1"></i> เบิก</button>`;
+
+    html += `
+      <div class="section-card mb-2" style="${blocked ? 'opacity:.7;' : ''}">
+        <div class="form-wrap">
+          <div class="row g-1" style="font-size:.85rem;">
+            <div class="col-12 d-flex justify-content-between align-items-center">
+              <b style="color:var(--navy);font-size:.95rem;"><i class="fas fa-user-shield me-1" style="color:#3b82f6;"></i>${escHtml(g.name)}</b>
+              ${typeBadge}
+            </div>
+            <div class="col-12">
+              <span class="badge rounded-pill" style="background:#ebf5ff;color:#3b82f6;font-size:.78rem;">${escHtml(g.id)}</span>
+              <span class="text-muted ms-1">${escHtml(g.position || '')}</span>
+              ${phoneLine}
+            </div>
+            <div class="col-12"><span class="text-muted">หน่วยงาน:</span> ${escHtml(g.siteName || g.siteId)}</div>
+            ${bankLine}
+            <div class="col-12 mt-2 pt-2 border-top d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-secondary" type="button" onclick="openGuardForm('${escHtml(g.id)}')" style="font-size:.78rem;"><i class="fas fa-edit me-1"></i> แก้ไข</button>
+              <button class="btn btn-sm btn-outline-danger" type="button" onclick="deleteMyGuard('${escHtml(g.id)}')" style="font-size:.78rem;"><i class="fas fa-trash-alt me-1"></i> ลบ</button>
+              ${reqBtn}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  });
+  listEl.innerHTML = html;
+}
+
+// ดึง รปภ. เข้าฟอร์มเบิก (หาชื่อจาก cache เพื่อไม่ต้องฝังชื่อใน onclick)
+function addMyGuardToReq(empId){
+  const g = (window._myGuards || []).find(x => x.id === empId);
+  if (g) addExtToReq(g.id, g.name);
+}
+
+// ฟอร์มเพิ่ม (ไม่ส่ง empId) / แก้ไข (ส่ง empId) รปภ.
+async function openGuardForm(empId){
+  const isEdit = !!empId;
+  const g = isEdit ? (window._myGuards || []).find(x => x.id === empId) : null;
+  if (isEdit && !g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
+
+  const sites = window._myGuardSites || [];
+  if (!sites.length) { Swal.fire('แจ้งเตือน', 'ไม่พบหน่วยงานในความรับผิดชอบ กรุณาติดต่อ Admin', 'warning'); return; }
+
+  // เพิ่มใหม่ → แนะนำรหัสถัดไป
+  let nextId = '';
+  if (!isEdit) {
+    Swal.fire({ title: 'กำลังเตรียมข้อมูล...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const ni = await callBackend('getNextEmpId');
+      nextId = (ni && ni.nextId) ? ni.nextId : '';
+    } catch(e) { /* ให้กรอกเองได้ */ }
+    Swal.close();
+  }
+
+  const v = g || { id: nextId, type: 'ประจำ', position: 'รปภ.', siteId: (document.getElementById('guard-site-filter').value || (sites.length === 1 ? sites[0].id : '')) };
+  const opt = (list, cur) => list.map(o => {
+    const val = Array.isArray(o) ? o[0] : o, label = Array.isArray(o) ? o[1] : o;
+    return `<option value="${escHtml(val)}"${val === cur ? ' selected' : ''}>${escHtml(label)}</option>`;
+  }).join('');
+  const siteOpts = '<option value="">-- เลือกหน่วยงาน --</option>' +
+    sites.map(s => `<option value="${escHtml(s.id)}"${s.id === v.siteId ? ' selected' : ''}>${escHtml(s.id)} - ${escHtml(s.name)}</option>`).join('');
+  const bankOpts = '<option value="">- เลือกธนาคาร -</option>' + opt(GUARD_BANKS, v.bankName || '');
+  const isTerm = t => (t === 'ลาออก' || t === 'หนีหาย');
+  const lbl = 'font-weight:600;font-size:.85rem;';
+  const inp = 'margin:4px 0 10px;width:100%;box-sizing:border-box;';
+  const selStyle = inp + 'display:block;';
+
+  const { value: vals, isConfirmed } = await Swal.fire({
+    title: isEdit ? 'แก้ไข รปภ. ' + g.id : 'เพิ่ม รปภ.',
+    html: `
+      <div style="text-align:left;padding:0 4px;">
+        <label style="${lbl}">รหัสพนักงาน *</label>
+        <input id="gf-id" class="swal2-input" style="${inp}${isEdit ? 'background:#f3f4f6;' : ''}" value="${escHtml(v.id)}" ${isEdit ? 'readonly' : ''} inputmode="numeric">
+        <label style="${lbl}">ชื่อ-นามสกุล *</label>
+        <input id="gf-name" class="swal2-input" style="${inp}" value="${escHtml(v.name)}">
+        <label style="${lbl}">หน่วยงานประจำ *</label>
+        <select id="gf-site" class="swal2-select" style="${selStyle}">${siteOpts}</select>
+        <label style="${lbl}">เบอร์โทรศัพท์</label>
+        <input id="gf-phone" type="tel" class="swal2-input" style="${inp}" value="${escHtml(v.phone)}" inputmode="numeric">
+        <div class="row g-2">
+          <div class="col-6">
+            <label style="${lbl}">ประเภท</label>
+            <select id="gf-type" class="swal2-select" style="${selStyle}">${opt(GUARD_TYPES, v.type)}</select>
+          </div>
+          <div class="col-6">
+            <label style="${lbl}">ตำแหน่ง</label>
+            <select id="gf-pos" class="swal2-select" style="${selStyle}">${opt(GUARD_POSITIONS, v.position)}</select>
+          </div>
+        </div>
+        <div id="gf-term-wrap" style="display:${isTerm(v.type) ? 'block' : 'none'};">
+          <label style="${lbl}color:#dc2626;">วันที่ลาออก / หนีหาย</label>
+          <input id="gf-term" type="date" class="swal2-input" style="${inp}" value="${escHtml(v.terminationDate)}">
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label style="${lbl}">ธนาคาร</label>
+            <select id="gf-bankname" class="swal2-select" style="${selStyle}">${bankOpts}</select>
+          </div>
+          <div class="col-6">
+            <label style="${lbl}">เลขบัญชี</label>
+            <input id="gf-bankacc" class="swal2-input" style="${inp}" value="${escHtml(v.bankAcc)}" inputmode="numeric">
+          </div>
+        </div>
+        <label style="${lbl}">ที่อยู่ (ตามบัตร ปชช.)</label>
+        <textarea id="gf-address" class="swal2-textarea" style="margin:4px 0 4px;width:100%;box-sizing:border-box;" rows="2">${escHtml(v.address)}</textarea>
+      </div>`,
+    showCancelButton: true, confirmButtonText: 'บันทึก', cancelButtonText: 'ยกเลิก', confirmButtonColor: '#06C755',
+    focusConfirm: false,
+    didOpen: () => {
+      document.getElementById('gf-type').addEventListener('change', function(){
+        document.getElementById('gf-term-wrap').style.display = isTerm(this.value) ? 'block' : 'none';
+      });
+    },
+    preConfirm: () => {
+      const id     = document.getElementById('gf-id').value.trim();
+      const name   = document.getElementById('gf-name').value.trim();
+      const siteId = document.getElementById('gf-site').value;
+      const type   = document.getElementById('gf-type').value;
+      if (!id)     { Swal.showValidationMessage('กรุณาระบุรหัสพนักงาน'); return false; }
+      if (!name)   { Swal.showValidationMessage('กรุณากรอกชื่อ-นามสกุล'); return false; }
+      if (!siteId) { Swal.showValidationMessage('กรุณาเลือกหน่วยงานประจำ'); return false; }
+      return {
+        empId: id, name, siteId, type,
+        phone:           document.getElementById('gf-phone').value.trim(),
+        position:        document.getElementById('gf-pos').value,
+        terminationDate: isTerm(type) ? document.getElementById('gf-term').value : '',
+        bankName:        document.getElementById('gf-bankname').value,
+        bankAcc:         document.getElementById('gf-bankacc').value.trim(),
+        address:         document.getElementById('gf-address').value.trim()
+      };
+    }
+  });
+  if (!isConfirmed || !vals) return;
+
+  Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('saveMyGuard', Object.assign({ mode: isEdit ? 'edit' : 'add', username: currentUsername }, vals));
+    if (r && r.success) {
+      Swal.fire({ icon: 'success', title: isEdit ? 'แก้ไขสำเร็จ' : 'เพิ่ม รปภ. สำเร็จ', html: isEdit ? '' : 'รหัสพนักงาน: <b style="color:#06C755;font-size:1.2rem;">' + escHtml(r.empId) + '</b>', timer: isEdit ? 1300 : undefined, showConfirmButton: !isEdit, confirmButtonColor: '#06C755' });
+      loadMyGuards();
+    } else {
+      Swal.fire('บันทึกไม่สำเร็จ', (r && (r.message || r.error)) || 'เกิดข้อผิดพลาด', 'error');
+    }
+  } catch(e) {
+    Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
+  }
+}
+
+async function deleteMyGuard(empId){
+  const g = (window._myGuards || []).find(x => x.id === empId);
+  if (!g) { Swal.fire('ผิดพลาด', 'ไม่พบรายชื่อ', 'error'); return; }
+
+  const cf = await Swal.fire({
+    title: 'ยืนยันลบ รปภ.?',
+    html: `<b>${escHtml(g.id)} · ${escHtml(g.name)}</b><br><span style="font-size:.85rem;color:#6b7280;">ข้อมูลพนักงานจะถูกลบออกจากระบบและกู้คืนไม่ได้<br>ถ้าแค่ออกจากงาน แนะนำให้ "แก้ไข" เป็นประเภท ลาออก แทน</span>`,
+    icon: 'warning', showCancelButton: true,
+    confirmButtonText: 'ลบ', cancelButtonText: 'ยกเลิก',
+    confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280'
+  });
+  if (!cf.isConfirmed) return;
+
+  Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  try {
+    const r = await callBackend('deleteMyGuard', { empId: empId, username: currentUsername });
+    if (r && r.success) {
+      Swal.fire({ icon: 'success', title: 'ลบสำเร็จ', timer: 1300, showConfirmButton: false });
+      loadMyGuards();
+    } else {
+      Swal.fire('ลบไม่สำเร็จ', (r && (r.message || r.error)) || 'เกิดข้อผิดพลาด', 'error');
     }
   } catch(e) {
     Swal.fire('ผิดพลาด', 'เชื่อมต่อ server ไม่ได้: ' + e, 'error');
